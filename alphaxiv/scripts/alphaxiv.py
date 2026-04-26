@@ -185,7 +185,7 @@ def _overview_payload(data):
     return data
 
 
-def _print_overview_section(data, section: str) -> None:
+def _overview_section_value(data, section: str):
     payload = _overview_payload(data)
     fields = {
         "abstract": "abstract",
@@ -194,13 +194,33 @@ def _print_overview_section(data, section: str) -> None:
         "report": "intermediateReport",
         "citations": "citations",
     }
-    value = payload.get(fields[section]) if isinstance(payload, dict) else None
+    return payload.get(fields[section]) if isinstance(payload, dict) else None
+
+
+def _print_overview_section(data, section: str) -> None:
+    value = _overview_section_value(data, section)
     if value is None:
         print(f"No {section} found.")
     elif isinstance(value, (dict, list)):
         print(json.dumps(value, indent=2, ensure_ascii=False))
     else:
         print(value)
+
+
+def _get_overview_data(paper_id: str):
+    cache_path = _cache_path("overview", paper_id, "json")
+    if os.path.exists(cache_path) and os.path.getsize(cache_path) > 0:
+        print(f"Using cached file: {cache_path}", file=sys.stderr)
+        data = _load_json(cache_path)
+        if data is not None:
+            return data
+    version_id, _ = _resolve_uuids(paper_id)
+    data = _get(f"/papers/v3/{version_id}/overview/en")
+    if not data:
+        data = _get_with_curl(f"/papers/v3/{version_id}/overview/en")
+    if data:
+        _save_text(cache_path, json.dumps(data, indent=2, ensure_ascii=False))
+    return data
 
 
 def _fmt_paper(p: dict) -> str:
@@ -276,22 +296,13 @@ def _resolve_uuids(id_or_arxiv: str) -> tuple[str, str]:
 
 
 def cmd_overview(args):
-    cache_path = _cache_path("overview", args.id, "json")
-    data = None
-    if os.path.exists(cache_path) and os.path.getsize(cache_path) > 0:
-        print(f"Using cached file: {cache_path}", file=sys.stderr)
-        data = _load_json(cache_path)
-    if data is None:
+    data = _get_overview_data(args.id)
+    if not data:
         version_id, _ = _resolve_uuids(args.id)
-        data = _get(f"/papers/v3/{version_id}/overview/en")
-        if not data:
-            data = _get_with_curl(f"/papers/v3/{version_id}/overview/en")
-        if not data:
-            status = _get(f"/papers/v3/{version_id}/overview/status")
-            if status:
-                print(f"Overview status: {json.dumps(status, indent=2)}")
-            return
-        _save_text(cache_path, json.dumps(data, indent=2, ensure_ascii=False))
+        status = _get(f"/papers/v3/{version_id}/overview/status")
+        if status:
+            print(f"Overview status: {json.dumps(status, indent=2)}")
+        return
     _print_overview_section(data, args.section)
 
 
@@ -301,6 +312,12 @@ def cmd_lookup(args):
         print(f"Error: could not extract an arXiv paper ID from {args.input!r}", file=sys.stderr)
         return
     cache_path = _cache_path("overview", paper_id, "md")
+    data = _get_overview_data(paper_id)
+    report = _overview_section_value(data, "report") if data else None
+    if report:
+        _save_text(cache_path, report if isinstance(report, str) else json.dumps(report, indent=2, ensure_ascii=False))
+        return
+    print("Warning: could not get report from overview; falling back to public markdown lookup", file=sys.stderr)
     if _print_cache_hit(cache_path):
         return
     url = f"{PUBLIC_BASE_URL}/overview/{urllib.parse.quote(paper_id)}.md"

@@ -44,7 +44,7 @@ Saves or reuses `./alphaxiv_1706.03762_overview.json` in the current working dir
 /opt/miniconda3/bin/python3 ${CLAUDE_SKILL_DIR}/scripts/alphaxiv.py lookup 1706.03762
 /opt/miniconda3/bin/python3 ${CLAUDE_SKILL_DIR}/scripts/alphaxiv.py lookup https://arxiv.org/abs/1706.03762
 ```
-Saves or reuses `./alphaxiv_1706.03762_overview.md` in the current working directory.
+Uses the overview JSON first and saves its `report` section to `./alphaxiv_1706.03762_overview.md`. Falls back to `alphaxiv.org/overview/{PAPER_ID}.md` only when the overview report is unavailable.
 
 **Get public markdown full text:**
 ```bash
@@ -80,7 +80,7 @@ No token is required for the supported commands: `search`, `paper`, `metrics`, `
 - arXiv IDs like `1706.03762` or `1706.03762v1` are accepted
 - `overview`, `lookup`, and `fulltext` write large outputs to the current working directory and reuse existing non-empty cache files before downloading
 - `overview --section` options: `abstract`, `summary`, `overview`, `report`, `citations`
-- `lookup` also accepts arXiv and AlphaXiv URLs and saves plain markdown from `alphaxiv.org/overview/{PAPER_ID}.md`
+- `lookup` also accepts arXiv and AlphaXiv URLs; it prefers the overview JSON `report` section and falls back to the public markdown endpoint
 - `fulltext` accepts the same inputs and saves extracted paper text from `alphaxiv.org/abs/{PAPER_ID}.md`
 - `overview` returns the English AI overview
 - `metadata` prints BibTeX by default when AlphaXiv provides it
