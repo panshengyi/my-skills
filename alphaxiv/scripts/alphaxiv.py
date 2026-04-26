@@ -427,16 +427,31 @@ def main():
     parser = argparse.ArgumentParser(description="AlphaXiv API skill")
     sub = parser.add_subparsers(dest="command", required=True)
 
+    # Output: ranked search results with title, arXiv ID, and AlphaXiv URL.
+    # See tmp search outputs such as 2509.03312_search.txt.
     p_search = sub.add_parser("search", help="Search papers")
     p_search.add_argument("query")
     p_search.add_argument("--limit", type=int, default=10)
 
+    # Output: one paper record with title, arXiv ID, AlphaXiv URL, authors,
+    # publication date, and a shortened abstract.
+    # See tmp paper outputs such as 2509.03312_paper.txt.
     p_paper = sub.add_parser("paper", help="Get paper details")
     p_paper.add_argument("id", help="arXiv ID or UUID")
 
+    # Output: compact public engagement counters: views, votes, and comments.
+    # See tmp metrics outputs such as 2509.03312_metrics.txt.
     p_metrics = sub.add_parser("metrics", help="Get paper metrics")
     p_metrics.add_argument("id", help="arXiv ID or UUID")
 
+    # Output: saves raw overview JSON to alphaxiv_<id>_overview.json, then
+    # prints one selected section. Sections match tmp files:
+    # section_abstract.txt, section_summary.txt, section_overview.txt,
+    # section_report.txt, and section_citations.txt.
+    # The overview section is a shorter paper walkthrough focused on the core
+    # method, experiments, figures, and conclusions. The report section is a
+    # longer structured research analysis covering authors, institutions,
+    # landscape, motivation, methodology, findings, and impact.
     p_overview = sub.add_parser("overview", help="Get AI overview of a paper")
     p_overview.add_argument("id", help="arXiv ID or UUID")
     p_overview.add_argument(
@@ -446,16 +461,29 @@ def main():
         help="Overview JSON section to print after saving or loading the raw cache",
     )
 
-    p_lookup = sub.add_parser("lookup", help="Get public markdown overview of a paper")
+    # Output: saves the overview JSON report section to alphaxiv_<id>_overview.md.
+    # If that report is unavailable, falls back to the public markdown endpoint.
+    # See tmp lookup outputs and lookup_from_overview.out.
+    # Use lookup when the desired output is the fuller research-analysis report,
+    # not the shorter walkthrough printed by overview --section overview.
+    p_lookup = sub.add_parser("lookup", help="Get markdown report for a paper")
     p_lookup.add_argument("input", help="arXiv ID, arXiv URL, or AlphaXiv URL")
 
+    # Output: saves extracted public paper text markdown to
+    # alphaxiv_<id>_fulltext.md. The stdout only reports the saved path.
+    # See tmp fulltext outputs such as 2509.03312_fulltext_robust.txt.
     p_fulltext = sub.add_parser("fulltext", help="Get public markdown full text of a paper")
     p_fulltext.add_argument("input", help="arXiv ID, arXiv URL, or AlphaXiv URL")
 
+    # Output: similar-paper list, each formatted like paper details with title,
+    # identifiers, authors, dates, and abstract snippets.
+    # See tmp similar outputs such as 2509.03312_similar.txt.
     p_similar = sub.add_parser("similar", help="Get similar papers")
     p_similar.add_argument("id", help="arXiv ID or UUID")
     p_similar.add_argument("--limit", type=int, default=5)
 
+    # Output: feed paper list for the selected sort and interval, formatted as
+    # repeated paper summaries. See tmp feed outputs such as 2509.03312_feed.txt.
     p_feed = sub.add_parser("feed", help="Get feed papers")
     p_feed.add_argument("--sort", default="Hot",
         choices=["Hot", "Comments", "Views", "Likes", "GitHub", "Twitter (X)"])
@@ -463,9 +491,15 @@ def main():
         choices=["3 Days", "7 Days", "30 Days"])
     p_feed.add_argument("--limit", type=int, default=10)
 
+    # Output: implementation and resource URLs, grouped into AlphaXiv
+    # implementations and paper resources when available.
+    # See tmp implementation outputs such as 2509.03312_implementations.txt.
     p_impl = sub.add_parser("implementations", help="Get paper implementations")
     p_impl.add_argument("id", help="arXiv ID or UUID")
 
+    # Output: metadata fields including title, arXiv ID, version, publication
+    # date, topics, authors, institutions, GitHub link, and BibTeX if provided.
+    # See tmp metadata outputs such as 2509.03312_metadata_default_bibtex.txt.
     p_meta = sub.add_parser("metadata", help="Get paper authors, institutions, topics, GitHub")
     p_meta.add_argument("id", help="arXiv ID")
 
