@@ -322,8 +322,8 @@ def cmd_paper(args):
     print("\n".join(lines))
 
 
-def cmd_paper_metadata(args):
-    cache_path = _cache_path("paper_metadata", args.id, "md")
+def cmd_metadata(args):
+    cache_path = _cache_path("metadata", args.id, "md")
     if _print_cache_hit(cache_path):
         return
     paper_data = _get(f"/papers/v3/{args.id}")
@@ -441,7 +441,7 @@ def cmd_overview(args):
     _save_text(section_cache_path, _format_overview_section(data, args.section))
 
 
-def cmd_lookup(args):
+def cmd_report(args):
     paper_id = _extract_paper_id(args.input)
     if not paper_id:
         print(f"Error: could not extract an arXiv paper ID from {args.input!r}", file=sys.stderr)
@@ -454,7 +454,7 @@ def cmd_lookup(args):
     if report:
         _save_text(cache_path, report if isinstance(report, str) else json.dumps(report, indent=2, ensure_ascii=False))
         return
-    print("Warning: could not get report from overview; falling back to public markdown lookup", file=sys.stderr)
+    print("Warning: could not get report from overview; falling back to public markdown endpoint", file=sys.stderr)
     url = f"{PUBLIC_BASE_URL}/overview/{urllib.parse.quote(paper_id)}.md"
     text = _get_text(url)
     if text:
@@ -532,7 +532,7 @@ def cmd_implementations(args):
             print(f"  [{item.get('type','')}] {item.get('url','')} - {item.get('description','')}")
 
 
-def cmd_metadata(args):
+def cmd_metadata_legacy(args):
     data = _get(f"/v2/papers/{args.id}/metadata")
     if not data:
         return
@@ -573,11 +573,11 @@ def main():
     p_search.add_argument("query")
     p_search.add_argument("--limit", type=int, default=10)
 
-    # Output cache: ./<paper_id>/paper_metadata.md with Paper, Metrics, and
+    # Output cache: ./<paper_id>/metadata.md with Paper, Metrics, and
     # Metadata sections. It combines the old paper, metrics, and metadata
     # commands into one structured record.
-    p_paper_meta = sub.add_parser("paper_metadata", help="Get structured paper metadata")
-    p_paper_meta.add_argument("id", help="arXiv ID or UUID")
+    p_meta = sub.add_parser("metadata", help="Get structured paper metadata")
+    p_meta.add_argument("id", help="arXiv ID or UUID")
 
     # Output cache: ./<paper_id>/overview.json plus
     # ./<paper_id>/overview_<section>.<ext>.
@@ -596,11 +596,10 @@ def main():
 
     # Output cache: ./<paper_id>/overview.md from the overview JSON report.
     # If that report is unavailable, falls back to the public markdown endpoint.
-    # See tmp lookup outputs and lookup_from_overview.out.
-    # Use lookup when the desired output is the fuller research-analysis report,
+    # Use report when the desired output is the fuller research-analysis report,
     # not the shorter walkthrough printed by overview --section overview.
-    p_lookup = sub.add_parser("lookup", help="Get markdown report for a paper")
-    p_lookup.add_argument("input", help="arXiv ID, arXiv URL, or AlphaXiv URL")
+    p_report = sub.add_parser("report", help="Get markdown report for a paper")
+    p_report.add_argument("input", help="arXiv ID, arXiv URL, or AlphaXiv URL")
 
     # Output cache: ./<paper_id>/fulltext.md with extracted public paper text.
     p_fulltext = sub.add_parser("fulltext", help="Get public markdown full text of a paper")
@@ -631,23 +630,23 @@ def main():
         p_impl = sub.add_parser("implementations", help="Get paper implementations")
         p_impl.add_argument("id", help="arXiv ID or UUID")
 
-        p_meta = sub.add_parser("metadata", help="Get paper authors, institutions, topics, GitHub")
-        p_meta.add_argument("id", help="arXiv ID")
+        p_legacy_meta = sub.add_parser("legacy_metadata", help="Get paper authors, institutions, topics, GitHub")
+        p_legacy_meta.add_argument("id", help="arXiv ID")
 
     args = parser.parse_args()
 
     {
         "search": cmd_search,
-        "paper_metadata": cmd_paper_metadata,
+        "metadata": cmd_metadata,
         "overview": cmd_overview,
-        "lookup": cmd_lookup,
+        "report": cmd_report,
         "fulltext": cmd_fulltext,
         "similar": cmd_similar,
         # "paper": cmd_paper,
         # "metrics": cmd_metrics,
         # "feed": cmd_feed,
         # "implementations": cmd_implementations,
-        # "metadata": cmd_metadata,
+        # "legacy_metadata": cmd_metadata_legacy,
     }[args.command](args)
 
 

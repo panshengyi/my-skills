@@ -23,11 +23,11 @@ AlphaXiv is a platform built on top of arXiv that adds social features, AI-gener
 
 **Get paper metadata:**
 ```bash
-/opt/miniconda3/bin/python3 ${CLAUDE_SKILL_DIR}/scripts/alphaxiv.py paper_metadata 1706.03762
-/opt/miniconda3/bin/python3 ${CLAUDE_SKILL_DIR}/scripts/alphaxiv.py paper_metadata 1706.03762v1
+/opt/miniconda3/bin/python3 ${CLAUDE_SKILL_DIR}/scripts/alphaxiv.py metadata 1706.03762
+/opt/miniconda3/bin/python3 ${CLAUDE_SKILL_DIR}/scripts/alphaxiv.py metadata 1706.03762v1
 ```
 Prints Markdown with `Paper`, `Metrics`, and `Metadata` sections. This combines the previous paper, metrics, and metadata outputs into one structured result.
-Saves or reuses `./1706.03762/paper_metadata.md`.
+Saves or reuses `./1706.03762/metadata.md`.
 
 **Get AI overview:**
 ```bash
@@ -39,11 +39,11 @@ The `overview` section is a shorter paper walkthrough focused on the core method
 
 **Get public markdown overview report:**
 ```bash
-/opt/miniconda3/bin/python3 ${CLAUDE_SKILL_DIR}/scripts/alphaxiv.py lookup 1706.03762
-/opt/miniconda3/bin/python3 ${CLAUDE_SKILL_DIR}/scripts/alphaxiv.py lookup https://arxiv.org/abs/1706.03762
+/opt/miniconda3/bin/python3 ${CLAUDE_SKILL_DIR}/scripts/alphaxiv.py report 1706.03762
+/opt/miniconda3/bin/python3 ${CLAUDE_SKILL_DIR}/scripts/alphaxiv.py report https://arxiv.org/abs/1706.03762
 ```
 Uses the overview JSON first and saves its `report` section to `./1706.03762/overview.md`. Falls back to `alphaxiv.org/overview/{PAPER_ID}.md` only when the overview report is unavailable.
-Use `lookup` when you want the fuller research-analysis report rather than the shorter `overview --section overview` walkthrough.
+Use `report` when you want the fuller research-analysis report rather than the shorter `overview --section overview` walkthrough.
 
 **Get public markdown full text:**
 ```bash
@@ -58,7 +58,7 @@ Saves or reuses `./1706.03762/fulltext.md`.
 ```
 Saves or reuses `./1706.03762/similar_limit_5.txt`.
 
-No token is required for the supported commands: `search`, `paper_metadata`, `similar`, `overview`, `lookup`, `fulltext`.
+No token is required for the supported commands: `search`, `metadata`, `similar`, `overview`, `report`, `fulltext`.
 
 ## Notes
 
@@ -66,7 +66,7 @@ No token is required for the supported commands: `search`, `paper_metadata`, `si
 - Commands with a paper ID cache outputs under `./{PAPER_ID}/`; `search` is not cached
 - `overview --section` options: `abstract`, `summary`, `overview`, `report`, `citations`
 - `overview --section overview` is the shorter narrative walkthrough; `overview --section report` is the fuller structured research analysis
-- `lookup` also accepts arXiv and AlphaXiv URLs; it prefers the overview JSON `report` section and falls back to the public markdown endpoint
+- `report` also accepts arXiv and AlphaXiv URLs; it prefers the overview JSON `report` section and falls back to the public markdown endpoint
 - `fulltext` accepts the same inputs and saves extracted paper text from `alphaxiv.org/abs/{PAPER_ID}.md`
 - `overview` returns the English AI overview
-- `paper_metadata` prints BibTeX by default when AlphaXiv provides it
+- `metadata` prints BibTeX by default when AlphaXiv provides it
