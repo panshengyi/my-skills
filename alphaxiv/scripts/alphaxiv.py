@@ -218,6 +218,56 @@ def _format_overview_section(data, section: str) -> str:
     return str(value)
 
 
+def _format_overview_summary(data) -> str:
+    summary = _overview_section_value(data, "summary")
+    if not summary:
+        return "No summary found."
+    if not isinstance(summary, dict):
+        return str(summary)
+
+    lines = ["# Summary", ""]
+    if summary.get("summary"):
+        lines.extend([summary["summary"], ""])
+    sections = [
+        ("Problem", summary.get("originalProblem")),
+        ("Method", summary.get("solution")),
+        ("Key Insights", summary.get("keyInsights")),
+        ("Results", summary.get("results")),
+    ]
+    for title, items in sections:
+        if not items:
+            continue
+        lines.extend([f"## {title}", ""])
+        for item in items:
+            lines.append(f"- {item}")
+        lines.append("")
+    return "\n".join(lines).strip() + "\n"
+
+
+def _format_overview_citations(data) -> str:
+    citations = _overview_section_value(data, "citations")
+    if not citations:
+        return "No citations found."
+    if not isinstance(citations, list):
+        return str(citations)
+
+    lines = ["# Citations", ""]
+    for citation in citations:
+        if not isinstance(citation, dict):
+            lines.extend([f"- {citation}", ""])
+            continue
+        title = citation.get("title") or "Untitled"
+        lines.append(f"## {title}")
+        if citation.get("fullCitation"):
+            lines.extend(["", citation["fullCitation"]])
+        if citation.get("justification"):
+            lines.extend(["", f"**Relevance:** {citation['justification']}"])
+        if citation.get("alphaxivLink"):
+            lines.extend(["", f"**AlphaXiv:** {citation['alphaxivLink']}"])
+        lines.append("")
+    return "\n".join(lines).strip() + "\n"
+
+
 def _get_overview_data(paper_id: str):
     cache_path = _cache_path("overview", paper_id, "json")
     if os.path.exists(cache_path) and os.path.getsize(cache_path) > 0:
@@ -426,19 +476,41 @@ def _resolve_uuids(id_or_arxiv: str) -> tuple[str, str]:
     return p.get("versionId", id_or_arxiv), p.get("groupId", id_or_arxiv)
 
 
-def cmd_overview(args):
-    section_ext = "md" if args.section in ("overview", "report") else "json" if args.section in ("summary", "citations") else "txt"
-    section_cache_path = _cache_path(f"overview_{args.section}", args.id, section_ext)
-    if _print_cache_hit(section_cache_path):
-        return
-    data = _get_overview_data(args.id)
+def _get_required_overview_data(paper_id: str):
+    data = _get_overview_data(paper_id)
     if not data:
-        version_id, _ = _resolve_uuids(args.id)
+        version_id, _ = _resolve_uuids(paper_id)
         status = _get(f"/papers/v3/{version_id}/overview/status")
         if status:
             print(f"Overview status: {json.dumps(status, indent=2)}")
+    return data
+
+
+def cmd_overview_summary(args):
+    cache_path = _cache_path("overview_summary", args.id, "md")
+    if _print_cache_hit(cache_path):
         return
-    _save_text(section_cache_path, _format_overview_section(data, args.section))
+    data = _get_required_overview_data(args.id)
+    if data:
+        _save_text(cache_path, _format_overview_summary(data))
+
+
+def cmd_overview_walkthrough(args):
+    cache_path = _cache_path("overview_walkthrough", args.id, "md")
+    if _print_cache_hit(cache_path):
+        return
+    data = _get_required_overview_data(args.id)
+    if data:
+        _save_text(cache_path, _format_overview_section(data, "overview"))
+
+
+def cmd_overview_citations(args):
+    cache_path = _cache_path("overview_citations", args.id, "md")
+    if _print_cache_hit(cache_path):
+        return
+    data = _get_required_overview_data(args.id)
+    if data:
+        _save_text(cache_path, _format_overview_citations(data))
 
 
 def cmd_report(args):
@@ -446,7 +518,7 @@ def cmd_report(args):
     if not paper_id:
         print(f"Error: could not extract an arXiv paper ID from {args.input!r}", file=sys.stderr)
         return
-    cache_path = _cache_path("overview", paper_id, "md")
+    cache_path = _cache_path("report", paper_id, "md")
     if _print_cache_hit(cache_path):
         return
     data = _get_overview_data(paper_id)
@@ -580,24 +652,25 @@ def main():
     p_meta.add_argument("id", help="arXiv ID or UUID")
 
     # Output cache: ./<paper_id>/overview.json plus
-    # ./<paper_id>/overview_<section>.<ext>.
-    # The overview section is a shorter paper walkthrough focused on the core
-    # method, experiments, figures, and conclusions. The report section is a
-    # longer structured research analysis covering authors, institutions,
-    # landscape, motivation, methodology, findings, and impact.
-    p_overview = sub.add_parser("overview", help="Get AI overview of a paper")
-    p_overview.add_argument("id", help="arXiv ID or UUID")
-    p_overview.add_argument(
-        "--section",
-        default="overview",
-        choices=["abstract", "summary", "overview", "report", "citations"],
-        help="Overview JSON section to print after saving or loading the raw cache",
-    )
+    # ./<paper_id>/overview_summary.md. Formats the API summary JSON as
+    # Markdown instead of exposing the raw JSON.
+    p_overview_summary = sub.add_parser("overview-summary", help="Get AI overview summary")
+    p_overview_summary.add_argument("id", help="arXiv ID or UUID")
 
-    # Output cache: ./<paper_id>/overview.md from the overview JSON report.
+    # Output cache: ./<paper_id>/overview_walkthrough.md with the API overview
+    # section. This is the shorter narrative walkthrough, not the full report.
+    p_overview_walkthrough = sub.add_parser("overview-walkthrough", help="Get AI overview walkthrough")
+    p_overview_walkthrough.add_argument("id", help="arXiv ID or UUID")
+
+    # Output cache: ./<paper_id>/overview_citations.md with relevant citations
+    # from the overview API.
+    p_overview_citations = sub.add_parser("overview-citations", help="Get overview citations")
+    p_overview_citations.add_argument("id", help="arXiv ID or UUID")
+
+    # Output cache: ./<paper_id>/report.md from the overview JSON report.
     # If that report is unavailable, falls back to the public markdown endpoint.
     # Use report when the desired output is the fuller research-analysis report,
-    # not the shorter walkthrough printed by overview --section overview.
+    # not the shorter walkthrough printed by overview-walkthrough.
     p_report = sub.add_parser("report", help="Get markdown report for a paper")
     p_report.add_argument("input", help="arXiv ID, arXiv URL, or AlphaXiv URL")
 
@@ -638,7 +711,9 @@ def main():
     {
         "search": cmd_search,
         "metadata": cmd_metadata,
-        "overview": cmd_overview,
+        "overview-summary": cmd_overview_summary,
+        "overview-walkthrough": cmd_overview_walkthrough,
+        "overview-citations": cmd_overview_citations,
         "report": cmd_report,
         "fulltext": cmd_fulltext,
         "similar": cmd_similar,
