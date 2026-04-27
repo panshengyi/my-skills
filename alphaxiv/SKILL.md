@@ -98,7 +98,7 @@ Use this to trace the foundations of a paper or identify important prior work.
 /opt/miniconda3/bin/python3 ${CLAUDE_SKILL_DIR}/scripts/alphaxiv.py similar 1706.03762 --limit 10
 ```
 
-`similar` saves or reuses the raw API response at `./1706.03762/similar_limit_10.json`, then writes a concise Markdown view to `./1706.03762/similar_limit_10.md`. The Markdown includes only `metadata` (title, universal paper ID, AlphaXiv URL, GitHub, dates, authors, topics, organizations), all `metrics` fields, and `paper_summary`.
+`similar` searches the AlphaXiv API every time and prints Markdown results. It does not cache the similar-search response. For each returned paper, it stores reusable paper files under that returned paper's own `./{PAPER_ID}/` folder: `metadata.md` contains metadata, metrics, and abstract; `overview_summary.md` contains the returned `paper_summary`.
 
 Use this to expand the related-work set beyond the paper's cited foundation.
 
@@ -122,7 +122,7 @@ Recent tests with paper `2509.23586` produced these approximate output sizes:
 | `metadata` | `./2509.23586/metadata.md` | 1.7 KB | Paper identity, abstract, dates, URLs, metrics, authors, topics |
 | `summary` | `./2509.23586/overview_summary.md` | 2.7 KB | Fast conceptual overview of problem, method, insights, and results |
 | `citations` | `./2509.23586/overview_citations.md` | 2.8 KB | Key supporting papers and why they matter |
-| `similar` | `./2509.23586/similar_limit_10.json` + `.md` | varies | Related work; raw JSON is cached, Markdown shows metadata, metrics, and paper summaries |
+| `similar` | per-result `metadata.md` + `overview_summary.md` | varies | Fresh related-work search; returned papers get reusable metadata and summary files |
 | `walkthrough` | `./2509.23586/overview_walkthrough.md` | 10 KB | Narrative, paper-body-oriented explanation with concrete flow |
 | `report` | `./2509.23586/report.md` | 21 KB | Fuller research analysis and structured interpretation |
 | `fulltext` | `./2509.23586/fulltext.md` | 82 KB | Exact paper details, original wording, equations, tables, sections |
@@ -143,8 +143,9 @@ Paper-specific commands accept plain arXiv IDs, versioned arXiv IDs, AlphaXiv UU
 
 ## Caching
 
-- `search` is not cached.
+- `search` and the `similar` search response are not cached.
 - Paper-specific commands cache under `./{PAPER_ID}/` in the current working directory.
+- `similar` writes reusable `metadata.md` and `overview_summary.md` files for each returned paper under that returned paper's own ID folder.
 - `summary`, `walkthrough`, `citations`, and `report` share `./{PAPER_ID}/overview.json`.
 - Cache-hit messages such as `Using cached file: .../overview.json` may appear on stderr for commands that reuse the shared overview JSON.
 - Cached files are reused before making network requests.

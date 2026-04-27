@@ -206,6 +206,20 @@ def _save_text(path: str, text: str) -> None:
     print(f"Saved file: {path}")
 
 
+def _write_text(path: str, text: str) -> None:
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(text)
+        if text and not text.endswith("\n"):
+            f.write("\n")
+
+
+def _write_text_if_missing(path: str, text: str) -> None:
+    if os.path.exists(path) and os.path.getsize(path) > 0:
+        return
+    _write_text(path, text)
+
+
 def _load_json(path: str) -> dict | list | None:
     try:
         with open(path, encoding="utf-8") as f:
@@ -347,18 +361,6 @@ def _json_block(value) -> list[str]:
     return ["```json", json.dumps(value, indent=2, ensure_ascii=False), "```"]
 
 
-def _append_bullets(lines: list[str], title: str, items) -> None:
-    if not items:
-        return
-    lines.extend([f"#### {title}", ""])
-    if isinstance(items, list):
-        for item in items:
-            lines.append(f"- {item}")
-    else:
-        lines.append(str(items))
-    lines.append("")
-
-
 def _append_metric_lines(lines: list[str], label: str, value) -> None:
     if isinstance(value, dict):
         for key, nested in value.items():
@@ -368,17 +370,70 @@ def _append_metric_lines(lines: list[str], label: str, value) -> None:
         lines.append(f"- **{label}:** {value}")
 
 
-def _format_similar_paper(p: dict, index: int) -> str:
-    title = p.get("title") or p.get("name") or p.get("id") or "Untitled"
-    lines = [f"## [{index}] {title}", ""]
+def _similar_paper_id(p: dict) -> str:
+    return p.get("universal_paper_id") or p.get("canonical_id") or p.get("id") or "paper"
 
-    lines.extend(["### Metadata", ""])
+
+def _organization_names(p: dict) -> list[str]:
+    names = []
+    for org in p.get("organization_info") or []:
+        if isinstance(org, dict) and org.get("name"):
+            names.append(org["name"])
+        elif isinstance(org, str):
+            names.append(org)
+    return names
+
+
+def _format_paper_summary(summary) -> str:
+    if not summary:
+        return "No summary found.\n"
+    if not isinstance(summary, dict):
+        return str(summary).strip() + "\n"
+
+    lines = ["# Summary", ""]
+    if summary.get("summary"):
+        lines.extend([summary["summary"], ""])
+
+    sections = [
+        ("Problem", summary.get("originalProblem")),
+        ("Method", summary.get("solution")),
+        ("Key Insights", summary.get("keyInsights")),
+        ("Results", summary.get("results")),
+    ]
+    for title, items in sections:
+        if not items:
+            continue
+        lines.extend([f"## {title}", ""])
+        if isinstance(items, list):
+            for item in items:
+                lines.append(f"- {item}")
+        else:
+            lines.append(str(items))
+        lines.append("")
+
+    extra = {
+        key: value
+        for key, value in summary.items()
+        if key not in {"summary", "originalProblem", "solution", "keyInsights", "results"}
+    }
+    if extra:
+        lines.extend(["## Additional Summary Fields", ""])
+        lines.extend(_json_block(extra))
+
+    return "\n".join(lines).strip() + "\n"
+
+
+def _format_similar_metadata(p: dict, include_title: bool = True) -> str:
+    title = p.get("title") or p.get("name") or p.get("id") or "Untitled"
+    lines = [f"# {title}", ""] if include_title else []
+
+    lines.extend(["## Metadata", ""])
     if title:
         lines.append(f"- **Title:** {title}")
     if p.get("universal_paper_id"):
         lines.append(f"- **Universal paper ID:** {p['universal_paper_id']}")
 
-    url_id = p.get("universal_paper_id") or p.get("canonical_id") or p.get("id")
+    url_id = _similar_paper_id(p)
     if url_id:
         lines.append(f"- **AlphaXiv URL:** https://alphaxiv.org/abs/{url_id}")
     if p.get("github_url"):
@@ -398,43 +453,30 @@ def _format_similar_paper(p: dict, index: int) -> str:
     topics = p.get("topics") or []
     if topics:
         lines.append(f"- **Topics:** {', '.join(str(topic) for topic in topics)}")
-    organizations = p.get("organization_info") or []
-    organization_names = []
-    for org in organizations:
-        if isinstance(org, dict) and org.get("name"):
-            organization_names.append(org["name"])
-        elif isinstance(org, str):
-            organization_names.append(org)
+    organization_names = _organization_names(p)
     if organization_names:
         lines.append(f"- **Organizations:** {', '.join(organization_names)}")
 
     metrics = p.get("metrics")
     if metrics:
-        lines.extend(["", "### Metrics", ""])
+        lines.extend(["", "## Metrics", ""])
         for key, value in metrics.items():
             _append_metric_lines(lines, key.replace("_", " "), value)
 
-    summary = p.get("paper_summary")
-    if summary:
-        lines.extend(["", "### Paper Summary", ""])
-        if isinstance(summary, dict):
-            if summary.get("summary"):
-                lines.extend([summary["summary"], ""])
-            _append_bullets(lines, "Original Problem", summary.get("originalProblem"))
-            _append_bullets(lines, "Solution", summary.get("solution"))
-            _append_bullets(lines, "Key Insights", summary.get("keyInsights"))
-            _append_bullets(lines, "Results", summary.get("results"))
-            summary_extra = {
-                key: value
-                for key, value in summary.items()
-                if key not in {"summary", "originalProblem", "solution", "keyInsights", "results"}
-            }
-            if summary_extra:
-                lines.extend(["### Additional Summary Fields", ""])
-                lines.extend(_json_block(summary_extra))
-        else:
-            lines.append(str(summary))
+    if p.get("abstract"):
+        lines.extend(["", "## Abstract", "", p["abstract"]])
 
+    return "\n".join(lines).strip()
+
+
+def _format_similar_paper_result(p: dict, index: int) -> str:
+    title = p.get("title") or p.get("name") or p.get("id") or "Untitled"
+    lines = [f"## [{index}] {title}", ""]
+    body = _format_similar_metadata(p, include_title=False)
+    body = body.replace("## Metadata", "### Metadata")
+    body = body.replace("## Metrics", "### Metrics")
+    body = body.replace("## Abstract", "### Abstract")
+    lines.append(body)
     return "\n".join(lines).strip()
 
 
@@ -690,20 +732,9 @@ def cmd_similar(args):
     paper_id = _require_paper_id(args.id)
     if not paper_id:
         return
-    json_cache_path = _cache_path(f"similar_limit_{args.limit}", paper_id, "json")
-    markdown_cache_path = _cache_path(f"similar_limit_{args.limit}", paper_id, "md")
-    if _print_cache_hit(markdown_cache_path):
-        return
-    data = None
-    if os.path.exists(json_cache_path) and os.path.getsize(json_cache_path) > 0:
-        print(f"Using cached file: {json_cache_path}", file=sys.stderr)
-        data = _load_json(json_cache_path)
-    if data is None:
-        data = _get(f"/papers/v3/{paper_id}/similar-papers", {"limit": str(args.limit)})
-        if not data:
-            data = _get_with_curl(f"/papers/v3/{paper_id}/similar-papers", {"limit": str(args.limit)})
-        if data:
-            _save_text(json_cache_path, json.dumps(data, indent=2, ensure_ascii=False))
+    data = _get(f"/papers/v3/{paper_id}/similar-papers", {"limit": str(args.limit)})
+    if not data:
+        data = _get_with_curl(f"/papers/v3/{paper_id}/similar-papers", {"limit": str(args.limit)})
     if not data:
         return
     papers = data if isinstance(data, list) else data.get("data", [])
@@ -712,8 +743,11 @@ def cmd_similar(args):
         return
     lines = [f"# Similar Papers for {paper_id}", ""]
     for i, p in enumerate(papers, 1):
-        lines.extend([_format_similar_paper(p, i), ""])
-    _save_text(markdown_cache_path, "\n".join(lines))
+        related_id = _similar_paper_id(p)
+        _write_text_if_missing(_cache_path("metadata", related_id, "md"), _format_similar_metadata(p))
+        _write_text_if_missing(_cache_path("overview_summary", related_id, "md"), _format_paper_summary(p.get("paper_summary")))
+        lines.extend([_format_similar_paper_result(p, i), ""])
+    print("\n".join(lines).strip())
 
 
 def cmd_feed(args):
@@ -830,9 +864,9 @@ def main():
     p_fulltext = sub.add_parser("fulltext", help="Get public markdown full text of a paper")
     p_fulltext.add_argument("input", help="arXiv ID, arXiv URL, or AlphaXiv URL")
 
-    # Output cache: ./<paper_id>/similar_limit_<n>.json with raw API data and
-    # ./<paper_id>/similar_limit_<n>.md with selected metadata, metrics, and
-    # paper_summary fields.
+    # Output: fresh similar-paper search results. The search response itself is
+    # not cached; each returned paper's metadata.md and overview_summary.md are
+    # stored under that paper's own ./<paper_id>/ folder for reuse.
     p_similar = sub.add_parser("similar", help="Get similar papers")
     p_similar.add_argument("id", help="arXiv ID, UUID, arXiv URL, or AlphaXiv URL")
     p_similar.add_argument("--limit", type=int, default=10)
