@@ -1,6 +1,6 @@
 ---
 name: alphaxiv
-description: Search and retrieve research papers from AlphaXiv. Use when asked to search papers by title or topic, get paper details/metadata/metrics, retrieve AI overviews, markdown reports, full text, or similar papers.
+description: Search and retrieve research papers from AlphaXiv. Use when asked to search papers by title or topic, get structured paper metadata, retrieve AI overviews, markdown reports, full text, or similar papers.
 argument-hint: <command> [arxiv-id] [options]
 ---
 
@@ -21,17 +21,12 @@ AlphaXiv is a platform built on top of arXiv that adds social features, AI-gener
 /opt/miniconda3/bin/python3 ${CLAUDE_SKILL_DIR}/scripts/alphaxiv.py search "attention is all you need" --limit 5
 ```
 
-**Get paper details:**
+**Get paper metadata:**
 ```bash
-/opt/miniconda3/bin/python3 ${CLAUDE_SKILL_DIR}/scripts/alphaxiv.py paper 1706.03762
-/opt/miniconda3/bin/python3 ${CLAUDE_SKILL_DIR}/scripts/alphaxiv.py paper 1706.03762v1
+/opt/miniconda3/bin/python3 ${CLAUDE_SKILL_DIR}/scripts/alphaxiv.py paper_metadata 1706.03762
+/opt/miniconda3/bin/python3 ${CLAUDE_SKILL_DIR}/scripts/alphaxiv.py paper_metadata 1706.03762v1
 ```
-Prints title, arXiv ID, AlphaXiv URL, source URL, version, first published date, published date, citation count, and abstract.
-
-**Get paper metrics (views, votes, comments):**
-```bash
-/opt/miniconda3/bin/python3 ${CLAUDE_SKILL_DIR}/scripts/alphaxiv.py metrics 1706.03762
-```
+Prints Markdown with `Paper`, `Metrics`, and `Metadata` sections. This combines the previous paper, metrics, and metadata outputs into one structured result.
 
 **Get AI overview:**
 ```bash
@@ -61,12 +56,7 @@ Saves or reuses `./alphaxiv_1706.03762_fulltext.md` in the current working direc
 /opt/miniconda3/bin/python3 ${CLAUDE_SKILL_DIR}/scripts/alphaxiv.py similar 1706.03762 --limit 5
 ```
 
-**Get paper authors, institutions, topics, GitHub, and BibTeX when available:**
-```bash
-/opt/miniconda3/bin/python3 ${CLAUDE_SKILL_DIR}/scripts/alphaxiv.py metadata 1706.03762
-```
-
-No token is required for the supported commands: `search`, `paper`, `metrics`, `metadata`, `similar`, `overview`, `lookup`, `fulltext`.
+No token is required for the supported commands: `search`, `paper_metadata`, `similar`, `overview`, `lookup`, `fulltext`.
 
 ## Notes
 
@@ -77,4 +67,4 @@ No token is required for the supported commands: `search`, `paper`, `metrics`, `
 - `lookup` also accepts arXiv and AlphaXiv URLs; it prefers the overview JSON `report` section and falls back to the public markdown endpoint
 - `fulltext` accepts the same inputs and saves extracted paper text from `alphaxiv.org/abs/{PAPER_ID}.md`
 - `overview` returns the English AI overview
-- `metadata` prints BibTeX by default when AlphaXiv provides it
+- `paper_metadata` prints BibTeX by default when AlphaXiv provides it

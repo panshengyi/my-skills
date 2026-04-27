@@ -312,6 +312,86 @@ def cmd_paper(args):
     print("\n".join(lines))
 
 
+def cmd_paper_metadata(args):
+    paper_data = _get(f"/papers/v3/{args.id}")
+    metrics_data = _get(f"/papers/v3/{args.id}/metrics")
+    metadata_data = _get(f"/v2/papers/{args.id}/metadata")
+
+    paper = paper_data.get("data", paper_data) if isinstance(paper_data, dict) else {}
+    metrics = metrics_data.get("data", metrics_data) if isinstance(metrics_data, dict) else {}
+    metadata = metadata_data.get("data", metadata_data) if isinstance(metadata_data, dict) else {}
+    paper_version = metadata.get("paper_version", {}) if isinstance(metadata, dict) else {}
+    paper_group = metadata.get("paper_group", {}) if isinstance(metadata, dict) else {}
+
+    def format_timestamp(value) -> str:
+        if value in (None, ""):
+            return ""
+        try:
+            ts = float(value)
+        except (TypeError, ValueError):
+            return str(value)
+        if ts > 10_000_000_000:
+            ts /= 1000
+        return datetime.fromtimestamp(ts, timezone.utc).date().isoformat()
+
+    def append_field(lines: list[str], label: str, value) -> None:
+        if value not in (None, "", []):
+            lines.append(f"- **{label}:** {value}")
+
+    arxiv_id = (
+        paper.get("arxivId")
+        or paper.get("upid")
+        or paper.get("universalId")
+        or paper_version.get("universal_paper_id")
+        or args.id
+    )
+    title = paper.get("title") or paper.get("name") or paper_version.get("title") or arxiv_id
+
+    lines = [f"# {title}", ""]
+
+    lines.extend(["## Paper", ""])
+    append_field(lines, "arXiv ID", arxiv_id)
+    append_field(lines, "AlphaXiv URL", f"https://alphaxiv.org/abs/{arxiv_id}" if arxiv_id else "")
+    append_field(lines, "Source URL", paper.get("sourceUrl"))
+    append_field(lines, "Version", paper.get("versionLabel") or paper_version.get("version_label"))
+    append_field(lines, "First Published", format_timestamp(paper.get("firstPublicationDate") or paper.get("submittedDate")))
+    append_field(lines, "Published", format_timestamp(paper.get("publicationDate") or paper.get("publishedDate") or paper_version.get("publication_date")))
+    append_field(lines, "Citations", paper.get("citationsCount"))
+
+    abstract = paper.get("abstract") or paper_version.get("abstract")
+    if abstract:
+        lines.extend(["", "### Abstract", "", abstract])
+
+    lines.extend(["", "## Metrics", ""])
+    append_field(lines, "Views", metrics.get("visitsAll", "N/A") if metrics else "N/A")
+    append_field(lines, "Votes", metrics.get("publicTotalVotes", "N/A") if metrics else "N/A")
+    append_field(lines, "Comments", metrics.get("commentsCount", "N/A") if metrics else "N/A")
+
+    lines.extend(["", "## Metadata", ""])
+    topics = paper_group.get("topics", []) if isinstance(paper_group, dict) else []
+    if topics:
+        append_field(lines, "Topics", ", ".join(topics))
+    authors = metadata.get("authors", []) if isinstance(metadata, dict) else []
+    if authors:
+        names = [author.get("full_name", "") for author in authors if isinstance(author, dict)]
+        append_field(lines, "Authors", ", ".join(name for name in names if name))
+    orgs = metadata.get("organization_info", []) if isinstance(metadata, dict) else []
+    if orgs:
+        names = [org.get("name", "") for org in orgs if isinstance(org, dict)]
+        append_field(lines, "Institutions", ", ".join(name for name in names if name))
+    implementation = metadata.get("implementation", {}) if isinstance(metadata, dict) else {}
+    if implementation and implementation.get("url"):
+        stars = implementation.get("stars", 0)
+        append_field(lines, "GitHub", f"{implementation.get('url')} ({stars} stars)")
+
+    citation = paper_version.get("citation", {}) if isinstance(paper_version, dict) else {}
+    bibtex = citation.get("bibtex") or paper.get("citationBibtex")
+    if bibtex:
+        lines.extend(["", "### BibTeX", "", "```bibtex", bibtex, "```"])
+
+    print("\n".join(lines))
+
+
 def cmd_metrics(args):
     data = _get(f"/papers/v3/{args.id}/metrics")
     if not data:
@@ -471,16 +551,10 @@ def main():
     p_search.add_argument("query")
     p_search.add_argument("--limit", type=int, default=10)
 
-    # Output: one paper record with title, arXiv ID, AlphaXiv URL, source URL,
-    # version, first published date, published date, citation count, and abstract.
-    # See tmp paper outputs such as 2509.03312_paper.txt.
-    p_paper = sub.add_parser("paper", help="Get paper details")
-    p_paper.add_argument("id", help="arXiv ID or UUID")
-
-    # Output: compact public engagement counters: views, votes, and comments.
-    # See tmp metrics outputs such as 2509.03312_metrics.txt.
-    p_metrics = sub.add_parser("metrics", help="Get paper metrics")
-    p_metrics.add_argument("id", help="arXiv ID or UUID")
+    # Output: Markdown with Paper, Metrics, and Metadata sections. It combines
+    # the old paper, metrics, and metadata commands into one structured record.
+    p_paper_meta = sub.add_parser("paper_metadata", help="Get structured paper metadata")
+    p_paper_meta.add_argument("id", help="arXiv ID or UUID")
 
     # Output: saves raw overview JSON to alphaxiv_<id>_overview.json, then
     # prints one selected section. Sections match tmp files:
@@ -521,9 +595,15 @@ def main():
     p_similar.add_argument("--limit", type=int, default=5)
 
     if False:
-        # Hidden commands. Keep the parser wiring here so feed and
-        # implementations can be restored without touching their command
-        # handlers, but do not expose them in argparse.
+        # Hidden commands. Keep the parser wiring here so these commands can be
+        # restored without touching their command handlers, but do not expose
+        # them in argparse.
+        p_paper = sub.add_parser("paper", help="Get paper details")
+        p_paper.add_argument("id", help="arXiv ID or UUID")
+
+        p_metrics = sub.add_parser("metrics", help="Get paper metrics")
+        p_metrics.add_argument("id", help="arXiv ID or UUID")
+
         p_feed = sub.add_parser("feed", help="Get feed papers")
         p_feed.add_argument("--sort", default="Hot",
             choices=["Hot", "Comments", "Views", "Likes", "GitHub", "Twitter (X)"])
@@ -534,25 +614,23 @@ def main():
         p_impl = sub.add_parser("implementations", help="Get paper implementations")
         p_impl.add_argument("id", help="arXiv ID or UUID")
 
-    # Output: metadata fields including title, arXiv ID, version, publication
-    # date, topics, authors, institutions, GitHub link, and BibTeX if provided.
-    # See tmp metadata outputs such as 2509.03312_metadata_default_bibtex.txt.
-    p_meta = sub.add_parser("metadata", help="Get paper authors, institutions, topics, GitHub")
-    p_meta.add_argument("id", help="arXiv ID")
+        p_meta = sub.add_parser("metadata", help="Get paper authors, institutions, topics, GitHub")
+        p_meta.add_argument("id", help="arXiv ID")
 
     args = parser.parse_args()
 
     {
         "search": cmd_search,
-        "paper": cmd_paper,
-        "metrics": cmd_metrics,
+        "paper_metadata": cmd_paper_metadata,
         "overview": cmd_overview,
         "lookup": cmd_lookup,
         "fulltext": cmd_fulltext,
         "similar": cmd_similar,
+        # "paper": cmd_paper,
+        # "metrics": cmd_metrics,
         # "feed": cmd_feed,
         # "implementations": cmd_implementations,
-        "metadata": cmd_metadata,
+        # "metadata": cmd_metadata,
     }[args.command](args)
 
 
