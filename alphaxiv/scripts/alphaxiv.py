@@ -654,7 +654,7 @@ def cmd_overview_citations(args):
         _save_text(cache_path, _format_overview_citations(data))
 
 
-def cmd_report(args):
+def cmd_overview_report(args):
     paper_id = _require_paper_id(args.input)
     if not paper_id:
         return
@@ -835,7 +835,7 @@ def main():
     # paper_summary fields.
     p_similar = sub.add_parser("similar", help="Get similar papers")
     p_similar.add_argument("id", help="arXiv ID, UUID, arXiv URL, or AlphaXiv URL")
-    p_similar.add_argument("--limit", type=int, default=5)
+    p_similar.add_argument("--limit", type=int, default=10)
 
     if False:
         # Hidden commands. Keep the parser wiring here so these commands can be
@@ -863,14 +863,14 @@ def main():
     args = parser.parse_args()
 
     {
-        "search": cmd_search,
+        "search": cmd_search,  # no need cache
         "metadata": cmd_metadata,
         "summary": cmd_overview_summary,
         "walkthrough": cmd_overview_walkthrough,
         "citations": cmd_overview_citations,
-        "report": cmd_report,
+        "report": cmd_overview_report,
         "fulltext": cmd_fulltext,
-        "similar": cmd_similar,
+        "similar": cmd_similar,  # no need cache
         # "paper": cmd_paper,
         # "metrics": cmd_metrics,
         # "feed": cmd_feed,
