@@ -152,8 +152,8 @@ def _safe_cache_id(value: str) -> str:
 
 
 def _cache_path(kind: str, paper_id: str, extension: str) -> str:
-    filename = f"alphaxiv_{_safe_cache_id(paper_id)}_{kind}.{extension}"
-    return os.path.abspath(filename)
+    filename = f"{kind}.{extension}"
+    return os.path.abspath(os.path.join(_safe_cache_id(paper_id), filename))
 
 
 def _print_cache_hit(path: str) -> bool:
@@ -164,6 +164,7 @@ def _print_cache_hit(path: str) -> bool:
 
 
 def _save_text(path: str, text: str) -> None:
+    os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
         f.write(text)
         if text and not text.endswith("\n"):
@@ -206,6 +207,15 @@ def _print_overview_section(data, section: str) -> None:
         print(json.dumps(value, indent=2, ensure_ascii=False))
     else:
         print(value)
+
+
+def _format_overview_section(data, section: str) -> str:
+    value = _overview_section_value(data, section)
+    if value is None:
+        return f"No {section} found."
+    if isinstance(value, (dict, list)):
+        return json.dumps(value, indent=2, ensure_ascii=False)
+    return str(value)
 
 
 def _get_overview_data(paper_id: str):
@@ -313,6 +323,9 @@ def cmd_paper(args):
 
 
 def cmd_paper_metadata(args):
+    cache_path = _cache_path("paper_metadata", args.id, "md")
+    if _print_cache_hit(cache_path):
+        return
     paper_data = _get(f"/papers/v3/{args.id}")
     metrics_data = _get(f"/papers/v3/{args.id}/metrics")
     metadata_data = _get(f"/v2/papers/{args.id}/metadata")
@@ -389,7 +402,7 @@ def cmd_paper_metadata(args):
     if bibtex:
         lines.extend(["", "### BibTeX", "", "```bibtex", bibtex, "```"])
 
-    print("\n".join(lines))
+    _save_text(cache_path, "\n".join(lines))
 
 
 def cmd_metrics(args):
@@ -414,6 +427,10 @@ def _resolve_uuids(id_or_arxiv: str) -> tuple[str, str]:
 
 
 def cmd_overview(args):
+    section_ext = "md" if args.section in ("overview", "report") else "json" if args.section in ("summary", "citations") else "txt"
+    section_cache_path = _cache_path(f"overview_{args.section}", args.id, section_ext)
+    if _print_cache_hit(section_cache_path):
+        return
     data = _get_overview_data(args.id)
     if not data:
         version_id, _ = _resolve_uuids(args.id)
@@ -421,7 +438,7 @@ def cmd_overview(args):
         if status:
             print(f"Overview status: {json.dumps(status, indent=2)}")
         return
-    _print_overview_section(data, args.section)
+    _save_text(section_cache_path, _format_overview_section(data, args.section))
 
 
 def cmd_lookup(args):
@@ -430,14 +447,14 @@ def cmd_lookup(args):
         print(f"Error: could not extract an arXiv paper ID from {args.input!r}", file=sys.stderr)
         return
     cache_path = _cache_path("overview", paper_id, "md")
+    if _print_cache_hit(cache_path):
+        return
     data = _get_overview_data(paper_id)
     report = _overview_section_value(data, "report") if data else None
     if report:
         _save_text(cache_path, report if isinstance(report, str) else json.dumps(report, indent=2, ensure_ascii=False))
         return
     print("Warning: could not get report from overview; falling back to public markdown lookup", file=sys.stderr)
-    if _print_cache_hit(cache_path):
-        return
     url = f"{PUBLIC_BASE_URL}/overview/{urllib.parse.quote(paper_id)}.md"
     text = _get_text(url)
     if text:
@@ -459,6 +476,9 @@ def cmd_fulltext(args):
 
 
 def cmd_similar(args):
+    cache_path = _cache_path(f"similar_limit_{args.limit}", args.id, "txt")
+    if _print_cache_hit(cache_path):
+        return
     data = _get(f"/papers/v3/{args.id}/similar-papers", {"limit": str(args.limit)})
     if not data:
         return
@@ -466,9 +486,10 @@ def cmd_similar(args):
     if not papers:
         print("No similar papers found.")
         return
+    lines = []
     for i, p in enumerate(papers, 1):
-        print(f"\n[{i}]")
-        print(_fmt_paper(p))
+        lines.extend([f"\n[{i}]", _fmt_paper(p)])
+    _save_text(cache_path, "\n".join(lines))
 
 
 def cmd_feed(args):
@@ -546,20 +567,20 @@ def main():
     sub = parser.add_subparsers(dest="command", required=True)
 
     # Output: ranked search results with title, arXiv ID, and AlphaXiv URL.
-    # See tmp search outputs such as 2509.03312_search.txt.
+    # Search is intentionally not cached because it is query-oriented and can
+    # change frequently.
     p_search = sub.add_parser("search", help="Search papers")
     p_search.add_argument("query")
     p_search.add_argument("--limit", type=int, default=10)
 
-    # Output: Markdown with Paper, Metrics, and Metadata sections. It combines
-    # the old paper, metrics, and metadata commands into one structured record.
+    # Output cache: ./<paper_id>/paper_metadata.md with Paper, Metrics, and
+    # Metadata sections. It combines the old paper, metrics, and metadata
+    # commands into one structured record.
     p_paper_meta = sub.add_parser("paper_metadata", help="Get structured paper metadata")
     p_paper_meta.add_argument("id", help="arXiv ID or UUID")
 
-    # Output: saves raw overview JSON to alphaxiv_<id>_overview.json, then
-    # prints one selected section. Sections match tmp files:
-    # section_abstract.txt, section_summary.txt, section_overview.txt,
-    # section_report.txt, and section_citations.txt.
+    # Output cache: ./<paper_id>/overview.json plus
+    # ./<paper_id>/overview_<section>.<ext>.
     # The overview section is a shorter paper walkthrough focused on the core
     # method, experiments, figures, and conclusions. The report section is a
     # longer structured research analysis covering authors, institutions,
@@ -573,7 +594,7 @@ def main():
         help="Overview JSON section to print after saving or loading the raw cache",
     )
 
-    # Output: saves the overview JSON report section to alphaxiv_<id>_overview.md.
+    # Output cache: ./<paper_id>/overview.md from the overview JSON report.
     # If that report is unavailable, falls back to the public markdown endpoint.
     # See tmp lookup outputs and lookup_from_overview.out.
     # Use lookup when the desired output is the fuller research-analysis report,
@@ -581,15 +602,11 @@ def main():
     p_lookup = sub.add_parser("lookup", help="Get markdown report for a paper")
     p_lookup.add_argument("input", help="arXiv ID, arXiv URL, or AlphaXiv URL")
 
-    # Output: saves extracted public paper text markdown to
-    # alphaxiv_<id>_fulltext.md. The stdout only reports the saved path.
-    # See tmp fulltext outputs such as 2509.03312_fulltext_robust.txt.
+    # Output cache: ./<paper_id>/fulltext.md with extracted public paper text.
     p_fulltext = sub.add_parser("fulltext", help="Get public markdown full text of a paper")
     p_fulltext.add_argument("input", help="arXiv ID, arXiv URL, or AlphaXiv URL")
 
-    # Output: similar-paper list, each formatted like paper details with title,
-    # identifiers, authors, dates, and abstract snippets.
-    # See tmp similar outputs such as 2509.03312_similar.txt.
+    # Output cache: ./<paper_id>/similar_limit_<n>.txt with formatted paper list.
     p_similar = sub.add_parser("similar", help="Get similar papers")
     p_similar.add_argument("id", help="arXiv ID or UUID")
     p_similar.add_argument("--limit", type=int, default=5)

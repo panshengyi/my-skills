@@ -27,13 +27,14 @@ AlphaXiv is a platform built on top of arXiv that adds social features, AI-gener
 /opt/miniconda3/bin/python3 ${CLAUDE_SKILL_DIR}/scripts/alphaxiv.py paper_metadata 1706.03762v1
 ```
 Prints Markdown with `Paper`, `Metrics`, and `Metadata` sections. This combines the previous paper, metrics, and metadata outputs into one structured result.
+Saves or reuses `./1706.03762/paper_metadata.md`.
 
 **Get AI overview:**
 ```bash
 /opt/miniconda3/bin/python3 ${CLAUDE_SKILL_DIR}/scripts/alphaxiv.py overview 1706.03762
 /opt/miniconda3/bin/python3 ${CLAUDE_SKILL_DIR}/scripts/alphaxiv.py overview 1706.03762 --section summary
 ```
-Saves or reuses `./alphaxiv_1706.03762_overview.json` in the current working directory, then prints the requested section.
+Saves or reuses `./1706.03762/overview.json`, then saves the requested section to `./1706.03762/overview_<section>.<ext>`.
 The `overview` section is a shorter paper walkthrough focused on the core method, experiments, figures, and conclusions. The `report` section is a longer structured research analysis covering authors, institutions, research landscape, motivation, methodology, findings, and impact.
 
 **Get public markdown overview report:**
@@ -41,7 +42,7 @@ The `overview` section is a shorter paper walkthrough focused on the core method
 /opt/miniconda3/bin/python3 ${CLAUDE_SKILL_DIR}/scripts/alphaxiv.py lookup 1706.03762
 /opt/miniconda3/bin/python3 ${CLAUDE_SKILL_DIR}/scripts/alphaxiv.py lookup https://arxiv.org/abs/1706.03762
 ```
-Uses the overview JSON first and saves its `report` section to `./alphaxiv_1706.03762_overview.md`. Falls back to `alphaxiv.org/overview/{PAPER_ID}.md` only when the overview report is unavailable.
+Uses the overview JSON first and saves its `report` section to `./1706.03762/overview.md`. Falls back to `alphaxiv.org/overview/{PAPER_ID}.md` only when the overview report is unavailable.
 Use `lookup` when you want the fuller research-analysis report rather than the shorter `overview --section overview` walkthrough.
 
 **Get public markdown full text:**
@@ -49,19 +50,20 @@ Use `lookup` when you want the fuller research-analysis report rather than the s
 /opt/miniconda3/bin/python3 ${CLAUDE_SKILL_DIR}/scripts/alphaxiv.py fulltext 1706.03762
 /opt/miniconda3/bin/python3 ${CLAUDE_SKILL_DIR}/scripts/alphaxiv.py fulltext https://arxiv.org/pdf/1706.03762
 ```
-Saves or reuses `./alphaxiv_1706.03762_fulltext.md` in the current working directory.
+Saves or reuses `./1706.03762/fulltext.md`.
 
 **Get similar papers:**
 ```bash
 /opt/miniconda3/bin/python3 ${CLAUDE_SKILL_DIR}/scripts/alphaxiv.py similar 1706.03762 --limit 5
 ```
+Saves or reuses `./1706.03762/similar_limit_5.txt`.
 
 No token is required for the supported commands: `search`, `paper_metadata`, `similar`, `overview`, `lookup`, `fulltext`.
 
 ## Notes
 
 - arXiv IDs like `1706.03762` or `1706.03762v1` are accepted
-- `overview`, `lookup`, and `fulltext` write large outputs to the current working directory and reuse existing non-empty cache files before downloading
+- Commands with a paper ID cache outputs under `./{PAPER_ID}/`; `search` is not cached
 - `overview --section` options: `abstract`, `summary`, `overview`, `report`, `citations`
 - `overview --section overview` is the shorter narrative walkthrough; `overview --section report` is the fuller structured research analysis
 - `lookup` also accepts arXiv and AlphaXiv URLs; it prefers the overview JSON `report` section and falls back to the public markdown endpoint
