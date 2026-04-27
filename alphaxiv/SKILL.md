@@ -1,6 +1,6 @@
 ---
 name: alphaxiv
-description: Search and retrieve research papers from AlphaXiv. Use when asked to search papers by title or topic, get paper details/metadata/metrics, retrieve AI overviews, markdown reports, full text, feed papers, similar papers, or implementations.
+description: Search and retrieve research papers from AlphaXiv. Use when asked to search papers by title or topic, get paper details/metadata/metrics, retrieve AI overviews, markdown reports, full text, or similar papers.
 argument-hint: <command> [arxiv-id] [options]
 ---
 
@@ -26,7 +26,7 @@ AlphaXiv is a platform built on top of arXiv that adds social features, AI-gener
 /opt/miniconda3/bin/python3 ${CLAUDE_SKILL_DIR}/scripts/alphaxiv.py paper 1706.03762
 /opt/miniconda3/bin/python3 ${CLAUDE_SKILL_DIR}/scripts/alphaxiv.py paper 1706.03762v1
 ```
-Prints the available AlphaXiv paper record fields, including IDs, source URL, type, authors, version, dates, citation count, license, resources, versions, full abstract, and BibTeX when provided.
+Prints title, arXiv ID, AlphaXiv URL, source URL, version, first published date, published date, citation count, and abstract.
 
 **Get paper metrics (views, votes, comments):**
 ```bash
@@ -61,22 +61,12 @@ Saves or reuses `./alphaxiv_1706.03762_fulltext.md` in the current working direc
 /opt/miniconda3/bin/python3 ${CLAUDE_SKILL_DIR}/scripts/alphaxiv.py similar 1706.03762 --limit 5
 ```
 
-**Get feed papers:**
-```bash
-/opt/miniconda3/bin/python3 ${CLAUDE_SKILL_DIR}/scripts/alphaxiv.py feed --sort Hot --interval "7 Days" --limit 10
-```
-
-**Get paper implementations (code repos):**
-```bash
-/opt/miniconda3/bin/python3 ${CLAUDE_SKILL_DIR}/scripts/alphaxiv.py implementations 1706.03762
-```
-
 **Get paper authors, institutions, topics, GitHub, and BibTeX when available:**
 ```bash
 /opt/miniconda3/bin/python3 ${CLAUDE_SKILL_DIR}/scripts/alphaxiv.py metadata 1706.03762
 ```
 
-No token is required for the supported commands: `search`, `paper`, `metrics`, `metadata`, `similar`, `feed`, `implementations`, `overview`, `lookup`, `fulltext`.
+No token is required for the supported commands: `search`, `paper`, `metrics`, `metadata`, `similar`, `overview`, `lookup`, `fulltext`.
 
 ## Notes
 
@@ -88,5 +78,3 @@ No token is required for the supported commands: `search`, `paper`, `metrics`, `
 - `fulltext` accepts the same inputs and saves extracted paper text from `alphaxiv.org/abs/{PAPER_ID}.md`
 - `overview` returns the English AI overview
 - `metadata` prints BibTeX by default when AlphaXiv provides it
-- Feed `--sort` options: `Hot`, `Comments`, `Views`, `Likes`, `GitHub`, `Twitter (X)`
-- Feed `--interval` options: `3 Days`, `7 Days`, `30 Days`

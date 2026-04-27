@@ -285,17 +285,6 @@ def cmd_paper(args):
             ts /= 1000
         return datetime.fromtimestamp(ts, timezone.utc).date().isoformat()
 
-    def format_named_items(items: list, name_keys: tuple[str, ...]) -> str:
-        values = []
-        for item in items:
-            if isinstance(item, dict):
-                value = next((item.get(key) for key in name_keys if item.get(key)), "")
-                if value:
-                    values.append(str(value))
-            elif item:
-                values.append(str(item))
-        return ", ".join(values)
-
     title = paper.get("title") or paper.get("name", "")
     if title:
         lines.append(f"Title: {title}")
@@ -305,23 +294,8 @@ def cmd_paper(args):
         lines.append(f"URL: https://alphaxiv.org/abs/{arxiv_id}")
     if paper.get("sourceUrl"):
         lines.append(f"Source URL: {paper.get('sourceUrl')}")
-    if paper.get("sourceName"):
-        lines.append(f"Source: {paper.get('sourceName')}")
-    if paper.get("type"):
-        lines.append(f"Type: {paper.get('type')}")
-
-    authors = paper.get("authors") or paper.get("authorNames") or []
-    if isinstance(authors, list) and authors:
-        if isinstance(authors[0], dict):
-            names = [a.get("name") or a.get("fullName") or a.get("full_name") or "" for a in authors]
-        else:
-            names = authors
-        lines.append(f"Authors: {', '.join(names)}")
-
     if paper.get("versionLabel"):
         lines.append(f"Version: {paper.get('versionLabel')}")
-    if paper.get("versionOrder") is not None:
-        lines.append(f"Version Order: {paper.get('versionOrder')}")
     first_date = format_timestamp(paper.get("firstPublicationDate") or paper.get("submittedDate"))
     if first_date:
         lines.append(f"First Published: {first_date}")
@@ -330,31 +304,10 @@ def cmd_paper(args):
         lines.append(f"Published: {pub_date}")
     if paper.get("citationsCount") is not None:
         lines.append(f"Citations: {paper.get('citationsCount')}")
-    if paper.get("googleCitationId"):
-        lines.append(f"Google Citation ID: {paper.get('googleCitationId')}")
-    if paper.get("license"):
-        lines.append(f"License: {paper.get('license')}")
-    if paper.get("groupId"):
-        lines.append(f"Group ID: {paper.get('groupId')}")
-    if paper.get("versionId"):
-        lines.append(f"Version ID: {paper.get('versionId')}")
-
-    resources = paper.get("resources") or []
-    if isinstance(resources, list) and resources:
-        formatted = format_named_items(resources, ("title", "name", "url", "description"))
-        if formatted:
-            lines.append(f"Resources: {formatted}")
-    versions = paper.get("versions") or []
-    if isinstance(versions, list) and versions:
-        formatted = format_named_items(versions, ("versionLabel", "universalId", "id"))
-        if formatted:
-            lines.append(f"Versions: {formatted}")
 
     abstract = paper.get("abstract", "")
     if abstract:
         lines.append(f"Abstract: {abstract}")
-    if paper.get("citationBibtex"):
-        lines.append(f"\nBibTeX:\n{paper.get('citationBibtex')}")
 
     print("\n".join(lines))
 
@@ -518,9 +471,8 @@ def main():
     p_search.add_argument("query")
     p_search.add_argument("--limit", type=int, default=10)
 
-    # Output: one paper record with title, arXiv ID, AlphaXiv/source URLs,
-    # source/type, authors, version fields, dates, citation count, license,
-    # UUIDs, resources, versions, full abstract, and BibTeX when available.
+    # Output: one paper record with title, arXiv ID, AlphaXiv URL, source URL,
+    # version, first published date, published date, citation count, and abstract.
     # See tmp paper outputs such as 2509.03312_paper.txt.
     p_paper = sub.add_parser("paper", help="Get paper details")
     p_paper.add_argument("id", help="arXiv ID or UUID")
@@ -568,20 +520,19 @@ def main():
     p_similar.add_argument("id", help="arXiv ID or UUID")
     p_similar.add_argument("--limit", type=int, default=5)
 
-    # Output: feed paper list for the selected sort and interval, formatted as
-    # repeated paper summaries. See tmp feed outputs such as 2509.03312_feed.txt.
-    p_feed = sub.add_parser("feed", help="Get feed papers")
-    p_feed.add_argument("--sort", default="Hot",
-        choices=["Hot", "Comments", "Views", "Likes", "GitHub", "Twitter (X)"])
-    p_feed.add_argument("--interval", default="7 Days",
-        choices=["3 Days", "7 Days", "30 Days"])
-    p_feed.add_argument("--limit", type=int, default=10)
+    if False:
+        # Hidden commands. Keep the parser wiring here so feed and
+        # implementations can be restored without touching their command
+        # handlers, but do not expose them in argparse.
+        p_feed = sub.add_parser("feed", help="Get feed papers")
+        p_feed.add_argument("--sort", default="Hot",
+            choices=["Hot", "Comments", "Views", "Likes", "GitHub", "Twitter (X)"])
+        p_feed.add_argument("--interval", default="7 Days",
+            choices=["3 Days", "7 Days", "30 Days"])
+        p_feed.add_argument("--limit", type=int, default=10)
 
-    # Output: implementation and resource URLs, grouped into AlphaXiv
-    # implementations and paper resources when available.
-    # See tmp implementation outputs such as 2509.03312_implementations.txt.
-    p_impl = sub.add_parser("implementations", help="Get paper implementations")
-    p_impl.add_argument("id", help="arXiv ID or UUID")
+        p_impl = sub.add_parser("implementations", help="Get paper implementations")
+        p_impl.add_argument("id", help="arXiv ID or UUID")
 
     # Output: metadata fields including title, arXiv ID, version, publication
     # date, topics, authors, institutions, GitHub link, and BibTeX if provided.
@@ -599,8 +550,8 @@ def main():
         "lookup": cmd_lookup,
         "fulltext": cmd_fulltext,
         "similar": cmd_similar,
-        "feed": cmd_feed,
-        "implementations": cmd_implementations,
+        # "feed": cmd_feed,
+        # "implementations": cmd_implementations,
         "metadata": cmd_metadata,
     }[args.command](args)
 
