@@ -26,6 +26,7 @@ AlphaXiv is a platform built on top of arXiv that adds social features, AI-gener
 /opt/miniconda3/bin/python3 ${CLAUDE_SKILL_DIR}/scripts/alphaxiv.py paper 1706.03762
 /opt/miniconda3/bin/python3 ${CLAUDE_SKILL_DIR}/scripts/alphaxiv.py paper 1706.03762v1
 ```
+Prints the available AlphaXiv paper record fields, including IDs, source URL, type, authors, version, dates, citation count, license, resources, versions, full abstract, and BibTeX when provided.
 
 **Get paper metrics (views, votes, comments):**
 ```bash
