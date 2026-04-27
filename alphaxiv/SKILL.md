@@ -31,19 +31,19 @@ Saves or reuses `./1706.03762/metadata.md`.
 
 **Get AI overview summary:**
 ```bash
-/opt/miniconda3/bin/python3 ${CLAUDE_SKILL_DIR}/scripts/alphaxiv.py overview-summary 1706.03762
+/opt/miniconda3/bin/python3 ${CLAUDE_SKILL_DIR}/scripts/alphaxiv.py summary 1706.03762
 ```
 Saves or reuses `./1706.03762/overview.json`, then saves a Markdown summary to `./1706.03762/overview_summary.md`.
 
 **Get AI overview walkthrough:**
 ```bash
-/opt/miniconda3/bin/python3 ${CLAUDE_SKILL_DIR}/scripts/alphaxiv.py overview-walkthrough 1706.03762
+/opt/miniconda3/bin/python3 ${CLAUDE_SKILL_DIR}/scripts/alphaxiv.py walkthrough 1706.03762
 ```
 Saves or reuses `./1706.03762/overview.json`, then saves the shorter narrative walkthrough to `./1706.03762/overview_walkthrough.md`.
 
 **Get overview citations:**
 ```bash
-/opt/miniconda3/bin/python3 ${CLAUDE_SKILL_DIR}/scripts/alphaxiv.py overview-citations 1706.03762
+/opt/miniconda3/bin/python3 ${CLAUDE_SKILL_DIR}/scripts/alphaxiv.py citations 1706.03762
 ```
 Saves or reuses `./1706.03762/overview.json`, then saves relevant citations to `./1706.03762/overview_citations.md`.
 
@@ -53,7 +53,7 @@ Saves or reuses `./1706.03762/overview.json`, then saves relevant citations to `
 /opt/miniconda3/bin/python3 ${CLAUDE_SKILL_DIR}/scripts/alphaxiv.py report https://arxiv.org/abs/1706.03762
 ```
 Uses the overview JSON first and saves its `report` section to `./1706.03762/report.md`. Falls back to `alphaxiv.org/overview/{PAPER_ID}.md` only when the overview report is unavailable.
-Use `report` when you want the fuller research-analysis report rather than the shorter `overview-walkthrough` output.
+Use `report` when you want the fuller research-analysis report rather than the shorter `walkthrough` output.
 
 **Get public markdown full text:**
 ```bash
@@ -68,15 +68,15 @@ Saves or reuses `./1706.03762/fulltext.md`.
 ```
 Saves or reuses `./1706.03762/similar_limit_5.txt`.
 
-No token is required for the supported commands: `search`, `metadata`, `similar`, `overview-summary`, `overview-walkthrough`, `overview-citations`, `report`, `fulltext`.
+No token is required for the supported commands: `search`, `metadata`, `similar`, `summary`, `walkthrough`, `citations`, `report`, `fulltext`.
 
 ## Notes
 
 - arXiv IDs like `1706.03762` or `1706.03762v1` are accepted
 - Commands with a paper ID cache outputs under `./{PAPER_ID}/`; `search` is not cached
 - `metadata` includes the paper abstract; there is no separate overview abstract command
-- `overview-summary` formats the AlphaXiv summary JSON as Markdown
-- `overview-walkthrough` is the shorter narrative walkthrough; `report` is the fuller structured research analysis
+- `summary` formats the AlphaXiv summary JSON as Markdown
+- `walkthrough` is the shorter narrative walkthrough; `report` is the fuller structured research analysis
 - `report` also accepts arXiv and AlphaXiv URLs; it prefers the overview JSON `report` section and falls back to the public markdown endpoint
 - `fulltext` accepts the same inputs and saves extracted paper text from `alphaxiv.org/abs/{PAPER_ID}.md`
 - `metadata` prints BibTeX by default when AlphaXiv provides it

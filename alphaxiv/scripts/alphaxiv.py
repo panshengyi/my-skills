@@ -654,23 +654,23 @@ def main():
     # Output cache: ./<paper_id>/overview.json plus
     # ./<paper_id>/overview_summary.md. Formats the API summary JSON as
     # Markdown instead of exposing the raw JSON.
-    p_overview_summary = sub.add_parser("overview-summary", help="Get AI overview summary")
-    p_overview_summary.add_argument("id", help="arXiv ID or UUID")
+    p_summary = sub.add_parser("summary", help="Get AI overview summary")
+    p_summary.add_argument("id", help="arXiv ID or UUID")
 
     # Output cache: ./<paper_id>/overview_walkthrough.md with the API overview
     # section. This is the shorter narrative walkthrough, not the full report.
-    p_overview_walkthrough = sub.add_parser("overview-walkthrough", help="Get AI overview walkthrough")
-    p_overview_walkthrough.add_argument("id", help="arXiv ID or UUID")
+    p_walkthrough = sub.add_parser("walkthrough", help="Get AI overview walkthrough")
+    p_walkthrough.add_argument("id", help="arXiv ID or UUID")
 
     # Output cache: ./<paper_id>/overview_citations.md with relevant citations
     # from the overview API.
-    p_overview_citations = sub.add_parser("overview-citations", help="Get overview citations")
-    p_overview_citations.add_argument("id", help="arXiv ID or UUID")
+    p_citations = sub.add_parser("citations", help="Get overview citations")
+    p_citations.add_argument("id", help="arXiv ID or UUID")
 
     # Output cache: ./<paper_id>/report.md from the overview JSON report.
     # If that report is unavailable, falls back to the public markdown endpoint.
     # Use report when the desired output is the fuller research-analysis report,
-    # not the shorter walkthrough printed by overview-walkthrough.
+    # not the shorter walkthrough output.
     p_report = sub.add_parser("report", help="Get markdown report for a paper")
     p_report.add_argument("input", help="arXiv ID, arXiv URL, or AlphaXiv URL")
 
@@ -711,9 +711,9 @@ def main():
     {
         "search": cmd_search,
         "metadata": cmd_metadata,
-        "overview-summary": cmd_overview_summary,
-        "overview-walkthrough": cmd_overview_walkthrough,
-        "overview-citations": cmd_overview_citations,
+        "summary": cmd_overview_summary,
+        "walkthrough": cmd_overview_walkthrough,
+        "citations": cmd_overview_citations,
         "report": cmd_report,
         "fulltext": cmd_fulltext,
         "similar": cmd_similar,
