@@ -267,7 +267,7 @@ def _format_overview_section(data, section: str) -> str:
     return str(value)
 
 
-def _format_overview_summary(data) -> str:
+def _format_summary(data) -> str:
     summary = _overview_section_value(data, "summary")
     if not summary:
         return "No summary found."
@@ -293,7 +293,7 @@ def _format_overview_summary(data) -> str:
     return "\n".join(lines).strip() + "\n"
 
 
-def _format_overview_citations(data) -> str:
+def _format_citations(data) -> str:
     citations = _overview_section_value(data, "citations")
     if not citations:
         return "No citations found."
@@ -318,18 +318,10 @@ def _format_overview_citations(data) -> str:
 
 
 def _get_overview_data(paper_id: str):
-    cache_path = _cache_path("overview", paper_id, "json")
-    if os.path.exists(cache_path) and os.path.getsize(cache_path) > 0:
-        print(f"Using cached file: {cache_path}", file=sys.stderr)
-        data = _load_json(cache_path)
-        if data is not None:
-            return data
     version_id, _ = _resolve_uuids(paper_id)
     data = _get(f"/papers/v3/{version_id}/overview/en")
     if not data:
         data = _get_with_curl(f"/papers/v3/{version_id}/overview/en")
-    if data:
-        _save_text(cache_path, json.dumps(data, indent=2, ensure_ascii=False))
     return data
 
 
@@ -645,23 +637,23 @@ def _get_required_overview_data(paper_id: str):
     return data
 
 
-def cmd_overview_summary(args):
+def cmd_summary(args):
     paper_id = _require_paper_id(args.id)
     if not paper_id:
         return
-    cache_path = _cache_path("overview_summary", paper_id, "md")
+    cache_path = _cache_path("summary", paper_id, "md")
     if _print_cache_hit(cache_path):
         return
     data = _get_required_overview_data(paper_id)
     if data:
-        _save_text(cache_path, _format_overview_summary(data))
+        _save_text(cache_path, _format_summary(data))
 
 
-def cmd_overview_walkthrough(args):
+def cmd_walkthrough(args):
     paper_id = _require_paper_id(args.id)
     if not paper_id:
         return
-    cache_path = _cache_path("overview_walkthrough", paper_id, "md")
+    cache_path = _cache_path("walkthrough", paper_id, "md")
     if _print_cache_hit(cache_path):
         return
     data = _get_required_overview_data(paper_id)
@@ -669,19 +661,19 @@ def cmd_overview_walkthrough(args):
         _save_text(cache_path, _format_overview_section(data, "overview"))
 
 
-def cmd_overview_citations(args):
+def cmd_citations(args):
     paper_id = _require_paper_id(args.id)
     if not paper_id:
         return
-    cache_path = _cache_path("overview_citations", paper_id, "md")
+    cache_path = _cache_path("citations", paper_id, "md")
     if _print_cache_hit(cache_path):
         return
     data = _get_required_overview_data(paper_id)
     if data:
-        _save_text(cache_path, _format_overview_citations(data))
+        _save_text(cache_path, _format_citations(data))
 
 
-def cmd_overview_report(args):
+def cmd_report(args):
     paper_id = _require_paper_id(args.input)
     if not paper_id:
         return
@@ -730,7 +722,7 @@ def cmd_similar(args):
     for i, p in enumerate(papers, 1):
         related_id = _similar_paper_id(p)
         _write_text_if_missing(_cache_path("metadata", related_id, "md"), _format_similar_metadata(p))
-        _write_text_if_missing(_cache_path("overview_summary", related_id, "md"), _format_paper_summary(p.get("paper_summary")))
+        _write_text_if_missing(_cache_path("summary", related_id, "md"), _format_paper_summary(p.get("paper_summary")))
         lines.extend([_format_similar_paper_result(p, i), ""])
     print("\n".join(lines).strip())
 
@@ -822,23 +814,22 @@ def main():
     p_meta = sub.add_parser("metadata", help="Get structured paper metadata")
     p_meta.add_argument("id", help="arXiv ID, UUID, arXiv URL, or AlphaXiv URL")
 
-    # Output cache: ./<paper_id>/overview.json plus
-    # ./<paper_id>/overview_summary.md. Formats the API summary JSON as
-    # Markdown instead of exposing the raw JSON.
+    # Output cache: ./<paper_id>/summary.md. Formats the API summary
+    # JSON as Markdown without persisting the raw JSON response.
     p_summary = sub.add_parser("summary", help="Get AI overview summary")
     p_summary.add_argument("id", help="arXiv ID, UUID, arXiv URL, or AlphaXiv URL")
 
-    # Output cache: ./<paper_id>/overview_walkthrough.md with the API overview
+    # Output cache: ./<paper_id>/walkthrough.md with the API overview
     # section. This is the shorter narrative walkthrough, not the full report.
     p_walkthrough = sub.add_parser("walkthrough", help="Get AI overview walkthrough")
     p_walkthrough.add_argument("id", help="arXiv ID, UUID, arXiv URL, or AlphaXiv URL")
 
-    # Output cache: ./<paper_id>/overview_citations.md with relevant citations
+    # Output cache: ./<paper_id>/citations.md with relevant citations
     # from the overview API.
     p_citations = sub.add_parser("citations", help="Get overview citations")
     p_citations.add_argument("id", help="arXiv ID, UUID, arXiv URL, or AlphaXiv URL")
 
-    # Output cache: ./<paper_id>/report.md from the overview JSON report.
+    # Output cache: ./<paper_id>/report.md from the overview API report.
     # If that report is unavailable, falls back to the public markdown endpoint.
     # Use report when the desired output is the fuller research-analysis report,
     # not the shorter walkthrough output.
@@ -850,7 +841,7 @@ def main():
     p_fulltext.add_argument("input", help="arXiv ID, arXiv URL, or AlphaXiv URL")
 
     # Output: fresh similar-paper search results. The search response itself is
-    # not cached; each returned paper's metadata.md and overview_summary.md are
+    # not cached; each returned paper's metadata.md and summary.md are
     # stored under that paper's own ./<paper_id>/ folder for reuse.
     p_similar = sub.add_parser("similar", help="Get similar papers")
     p_similar.add_argument("id", help="arXiv ID, UUID, arXiv URL, or AlphaXiv URL")
@@ -884,10 +875,10 @@ def main():
     {
         "search": cmd_search,  # no need cache
         "metadata": cmd_metadata,
-        "summary": cmd_overview_summary,
-        "walkthrough": cmd_overview_walkthrough,
-        "citations": cmd_overview_citations,
-        "report": cmd_overview_report,
+        "summary": cmd_summary,
+        "walkthrough": cmd_walkthrough,
+        "citations": cmd_citations,
+        "report": cmd_report,
         "fulltext": cmd_fulltext,
         "similar": cmd_similar,  # no need cache
         # "paper": cmd_paper,

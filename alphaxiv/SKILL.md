@@ -35,7 +35,7 @@ Use the explicit interpreter:
 ### Search for Papers
 
 ```bash
-/opt/miniconda3/bin/python3 ${CLAUDE_SKILL_DIR}/scripts/alphaxiv.py search "attention is all you need" --limit 5
+/opt/miniconda3/bin/python3 ${CLAUDE_SKILL_DIR}/scripts/alphaxiv.py search "attention is all you need" --limit 10
 ```
 
 `search` returns ranked candidates with titles, arXiv IDs when available, AlphaXiv URLs, authors, and short abstracts. It is a utility command for finding the target paper and is intentionally not cached because search results can change.
@@ -57,7 +57,7 @@ Use this first when you need the paper identity, abstract, bibliographic details
 /opt/miniconda3/bin/python3 ${CLAUDE_SKILL_DIR}/scripts/alphaxiv.py summary 1706.03762
 ```
 
-`summary` saves or reuses `./1706.03762/overview.json`, then writes `./1706.03762/overview_summary.md`. It formats the AlphaXiv overview summary into Markdown sections such as `Problem`, `Method`, `Key Insights`, and `Results`.
+`summary` saves or reuses `./1706.03762/summary.md`. It requests the AlphaXiv overview API when this Markdown cache is missing and does not persist the raw JSON response. It formats the AlphaXiv overview summary into Markdown sections such as `Problem`, `Method`, `Key Insights`, and `Results`.
 
 Use this with `metadata` for the fastest useful overview of a paper.
 
@@ -68,7 +68,7 @@ Use this with `metadata` for the fastest useful overview of a paper.
 /opt/miniconda3/bin/python3 ${CLAUDE_SKILL_DIR}/scripts/alphaxiv.py report https://alphaxiv.org/abs/1706.03762
 ```
 
-`report` saves or reuses `./1706.03762/report.md`. It prefers the `report` section from the cached overview JSON and falls back to the public markdown endpoint `https://alphaxiv.org/overview/{PAPER_ID}.md` only when needed.
+`report` saves or reuses `./1706.03762/report.md`. It prefers the `report` section from the AlphaXiv overview API and falls back to the public markdown endpoint `https://alphaxiv.org/overview/{PAPER_ID}.md` only when needed. It does not persist the raw overview JSON response.
 
 Use this for deeper analysis: broader research context, motivation, methodology, evaluation, results, limitations, and significance. This is usually the best next step after `metadata` and `summary`.
 
@@ -78,7 +78,7 @@ Use this for deeper analysis: broader research context, motivation, methodology,
 /opt/miniconda3/bin/python3 ${CLAUDE_SKILL_DIR}/scripts/alphaxiv.py walkthrough 1706.03762
 ```
 
-`walkthrough` saves or reuses `./1706.03762/overview.json`, then writes `./1706.03762/overview_walkthrough.md`. It is shorter than `report` and follows the paper content more narratively, often including figures and section-level explanations.
+`walkthrough` saves or reuses `./1706.03762/walkthrough.md`. It requests the AlphaXiv overview API when this Markdown cache is missing and does not persist the raw JSON response. It is shorter than `report` and follows the paper content more narratively, often including figures and section-level explanations.
 
 Use this when the user wants to understand how the paper unfolds or asks about the paper's concrete method flow.
 
@@ -88,7 +88,7 @@ Use this when the user wants to understand how the paper unfolds or asks about t
 /opt/miniconda3/bin/python3 ${CLAUDE_SKILL_DIR}/scripts/alphaxiv.py citations 1706.03762
 ```
 
-`citations` saves or reuses `./1706.03762/overview.json`, then writes `./1706.03762/overview_citations.md`. It lists key related papers cited by or relevant to the target paper, with short relevance explanations and AlphaXiv links when available.
+`citations` saves or reuses `./1706.03762/citations.md`. It requests the AlphaXiv overview API when this Markdown cache is missing and does not persist the raw JSON response. It lists key related papers cited by or relevant to the target paper, with short relevance explanations and AlphaXiv links when available.
 
 Use this to trace the foundations of a paper or identify important prior work.
 
@@ -98,7 +98,7 @@ Use this to trace the foundations of a paper or identify important prior work.
 /opt/miniconda3/bin/python3 ${CLAUDE_SKILL_DIR}/scripts/alphaxiv.py similar 1706.03762 --limit 10
 ```
 
-`similar` searches the AlphaXiv API every time and prints Markdown results. It does not cache the similar-search response. For each returned paper, it stores reusable paper files under that returned paper's own `./{PAPER_ID}/` folder: `metadata.md` contains metadata, metrics, and abstract; `overview_summary.md` contains the returned `paper_summary`.
+`similar` searches the AlphaXiv API every time and prints Markdown results. It does not cache the similar-search response. For each returned paper, it stores reusable paper files under that returned paper's own `./{PAPER_ID}/` folder: `metadata.md` contains metadata, metrics, and abstract; `summary.md` contains the returned `paper_summary`.
 
 Use this to expand the related-work set beyond the paper's cited foundation.
 
@@ -120,10 +120,10 @@ Recent tests with paper `2509.23586` produced these approximate output sizes:
 | Command | Cached output | Approx. size | Best use |
 | --- | --- | ---: | --- |
 | `metadata` | `./2509.23586/metadata.md` | varies | Paper identity, abstract, dates, AlphaXiv URL, GitHub when available, metrics, authors, topics, organizations |
-| `summary` | `./2509.23586/overview_summary.md` | 2.7 KB | Fast conceptual overview of problem, method, insights, and results |
-| `citations` | `./2509.23586/overview_citations.md` | 2.8 KB | Key supporting papers and why they matter |
-| `similar` | per-result `metadata.md` + `overview_summary.md` | varies | Fresh related-work search; returned papers get reusable metadata and summary files |
-| `walkthrough` | `./2509.23586/overview_walkthrough.md` | 10 KB | Narrative, paper-body-oriented explanation with concrete flow |
+| `summary` | `./2509.23586/summary.md` | 2.7 KB | Fast conceptual overview of problem, method, insights, and results |
+| `citations` | `./2509.23586/citations.md` | 2.8 KB | Key supporting papers and why they matter |
+| `similar` | per-result `metadata.md` + `summary.md` | varies | Fresh related-work search; returned papers get reusable metadata and summary files |
+| `walkthrough` | `./2509.23586/walkthrough.md` | 10 KB | Narrative, paper-body-oriented explanation with concrete flow |
 | `report` | `./2509.23586/report.md` | 21 KB | Fuller research analysis and structured interpretation |
 | `fulltext` | `./2509.23586/fulltext.md` | 82 KB | Exact paper details, original wording, equations, tables, sections |
 
@@ -145,9 +145,8 @@ Paper-specific commands accept plain arXiv IDs, versioned arXiv IDs, AlphaXiv UU
 
 - `search` and the `similar` search response are not cached.
 - Paper-specific commands cache under `./{PAPER_ID}/` in the current working directory.
-- `similar` writes reusable `metadata.md` and `overview_summary.md` files for each returned paper under that returned paper's own ID folder.
-- `summary`, `walkthrough`, `citations`, and `report` share `./{PAPER_ID}/overview.json`.
-- Cache-hit messages such as `Using cached file: .../overview.json` may appear on stderr for commands that reuse the shared overview JSON.
+- `similar` writes reusable `metadata.md` and `summary.md` files for each returned paper under that returned paper's own ID folder.
+- `summary`, `walkthrough`, `citations`, and `report` each cache their own Markdown output; raw overview JSON responses are not persisted.
 - Cached files are reused before making network requests.
 
 ## Error Handling
