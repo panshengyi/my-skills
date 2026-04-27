@@ -343,6 +343,101 @@ def _fmt_paper(p: dict) -> str:
     return "\n".join(lines)
 
 
+def _json_block(value) -> list[str]:
+    return ["```json", json.dumps(value, indent=2, ensure_ascii=False), "```"]
+
+
+def _append_bullets(lines: list[str], title: str, items) -> None:
+    if not items:
+        return
+    lines.extend([f"#### {title}", ""])
+    if isinstance(items, list):
+        for item in items:
+            lines.append(f"- {item}")
+    else:
+        lines.append(str(items))
+    lines.append("")
+
+
+def _append_metric_lines(lines: list[str], label: str, value) -> None:
+    if isinstance(value, dict):
+        for key, nested in value.items():
+            nested_label = f"{label} {key.replace('_', ' ')}".strip()
+            _append_metric_lines(lines, nested_label, nested)
+    elif value not in (None, "", []):
+        lines.append(f"- **{label}:** {value}")
+
+
+def _format_similar_paper(p: dict, index: int) -> str:
+    title = p.get("title") or p.get("name") or p.get("id") or "Untitled"
+    lines = [f"## [{index}] {title}", ""]
+
+    lines.extend(["### Metadata", ""])
+    if title:
+        lines.append(f"- **Title:** {title}")
+    if p.get("universal_paper_id"):
+        lines.append(f"- **Universal paper ID:** {p['universal_paper_id']}")
+
+    url_id = p.get("universal_paper_id") or p.get("canonical_id") or p.get("id")
+    if url_id:
+        lines.append(f"- **AlphaXiv URL:** https://alphaxiv.org/abs/{url_id}")
+    if p.get("github_url"):
+        stars = p.get("github_stars")
+        suffix = f" ({stars} stars)" if stars is not None else ""
+        lines.append(f"- **GitHub:** {p['github_url']}{suffix}")
+    if p.get("first_publication_date"):
+        lines.append(f"- **First publication date:** {p['first_publication_date']}")
+    if p.get("publication_date"):
+        lines.append(f"- **Publication date:** {p['publication_date']}")
+    if p.get("updated_at"):
+        lines.append(f"- **Updated at:** {p['updated_at']}")
+
+    authors = p.get("authors") or []
+    if authors:
+        lines.append(f"- **Authors:** {', '.join(str(author) for author in authors)}")
+    topics = p.get("topics") or []
+    if topics:
+        lines.append(f"- **Topics:** {', '.join(str(topic) for topic in topics)}")
+    organizations = p.get("organization_info") or []
+    organization_names = []
+    for org in organizations:
+        if isinstance(org, dict) and org.get("name"):
+            organization_names.append(org["name"])
+        elif isinstance(org, str):
+            organization_names.append(org)
+    if organization_names:
+        lines.append(f"- **Organizations:** {', '.join(organization_names)}")
+
+    metrics = p.get("metrics")
+    if metrics:
+        lines.extend(["", "### Metrics", ""])
+        for key, value in metrics.items():
+            _append_metric_lines(lines, key.replace("_", " "), value)
+
+    summary = p.get("paper_summary")
+    if summary:
+        lines.extend(["", "### Paper Summary", ""])
+        if isinstance(summary, dict):
+            if summary.get("summary"):
+                lines.extend([summary["summary"], ""])
+            _append_bullets(lines, "Original Problem", summary.get("originalProblem"))
+            _append_bullets(lines, "Solution", summary.get("solution"))
+            _append_bullets(lines, "Key Insights", summary.get("keyInsights"))
+            _append_bullets(lines, "Results", summary.get("results"))
+            summary_extra = {
+                key: value
+                for key, value in summary.items()
+                if key not in {"summary", "originalProblem", "solution", "keyInsights", "results"}
+            }
+            if summary_extra:
+                lines.extend(["### Additional Summary Fields", ""])
+                lines.extend(_json_block(summary_extra))
+        else:
+            lines.append(str(summary))
+
+    return "\n".join(lines).strip()
+
+
 def cmd_search(args):
     data = _get("/search/v2/paper/fast", {"q": args.query, "includePrivate": "false"})
     if not data:
@@ -595,20 +690,30 @@ def cmd_similar(args):
     paper_id = _require_paper_id(args.id)
     if not paper_id:
         return
-    cache_path = _cache_path(f"similar_limit_{args.limit}", paper_id, "txt")
-    if _print_cache_hit(cache_path):
+    json_cache_path = _cache_path(f"similar_limit_{args.limit}", paper_id, "json")
+    markdown_cache_path = _cache_path(f"similar_limit_{args.limit}", paper_id, "md")
+    if _print_cache_hit(markdown_cache_path):
         return
-    data = _get(f"/papers/v3/{paper_id}/similar-papers", {"limit": str(args.limit)})
+    data = None
+    if os.path.exists(json_cache_path) and os.path.getsize(json_cache_path) > 0:
+        print(f"Using cached file: {json_cache_path}", file=sys.stderr)
+        data = _load_json(json_cache_path)
+    if data is None:
+        data = _get(f"/papers/v3/{paper_id}/similar-papers", {"limit": str(args.limit)})
+        if not data:
+            data = _get_with_curl(f"/papers/v3/{paper_id}/similar-papers", {"limit": str(args.limit)})
+        if data:
+            _save_text(json_cache_path, json.dumps(data, indent=2, ensure_ascii=False))
     if not data:
         return
     papers = data if isinstance(data, list) else data.get("data", [])
     if not papers:
         print("No similar papers found.")
         return
-    lines = []
+    lines = [f"# Similar Papers for {paper_id}", ""]
     for i, p in enumerate(papers, 1):
-        lines.extend([f"\n[{i}]", _fmt_paper(p)])
-    _save_text(cache_path, "\n".join(lines))
+        lines.extend([_format_similar_paper(p, i), ""])
+    _save_text(markdown_cache_path, "\n".join(lines))
 
 
 def cmd_feed(args):
@@ -725,7 +830,9 @@ def main():
     p_fulltext = sub.add_parser("fulltext", help="Get public markdown full text of a paper")
     p_fulltext.add_argument("input", help="arXiv ID, arXiv URL, or AlphaXiv URL")
 
-    # Output cache: ./<paper_id>/similar_limit_<n>.txt with formatted paper list.
+    # Output cache: ./<paper_id>/similar_limit_<n>.json with raw API data and
+    # ./<paper_id>/similar_limit_<n>.md with selected metadata, metrics, and
+    # paper_summary fields.
     p_similar = sub.add_parser("similar", help="Get similar papers")
     p_similar.add_argument("id", help="arXiv ID, UUID, arXiv URL, or AlphaXiv URL")
     p_similar.add_argument("--limit", type=int, default=5)

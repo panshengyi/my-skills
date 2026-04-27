@@ -98,7 +98,7 @@ Use this to trace the foundations of a paper or identify important prior work.
 /opt/miniconda3/bin/python3 ${CLAUDE_SKILL_DIR}/scripts/alphaxiv.py similar 1706.03762 --limit 5
 ```
 
-`similar` saves or reuses `./1706.03762/similar_limit_5.txt`. It returns papers similar to the target paper, including title, AlphaXiv URL, authors, and abstract snippets.
+`similar` saves or reuses the raw API response at `./1706.03762/similar_limit_5.json`, then writes a concise Markdown view to `./1706.03762/similar_limit_5.md`. The Markdown includes only `metadata` (title, universal paper ID, AlphaXiv URL, GitHub, dates, authors, topics, organizations), all `metrics` fields, and `paper_summary`.
 
 Use this to expand the related-work set beyond the paper's cited foundation.
 
@@ -122,7 +122,7 @@ Recent tests with paper `2509.23586` produced these approximate output sizes:
 | `metadata` | `./2509.23586/metadata.md` | 1.7 KB | Paper identity, abstract, dates, URLs, metrics, authors, topics |
 | `summary` | `./2509.23586/overview_summary.md` | 2.7 KB | Fast conceptual overview of problem, method, insights, and results |
 | `citations` | `./2509.23586/overview_citations.md` | 2.8 KB | Key supporting papers and why they matter |
-| `similar` | `./2509.23586/similar_limit_5.txt` | 3.3 KB | Related work with similar topics or abstracts |
+| `similar` | `./2509.23586/similar_limit_5.json` + `.md` | varies | Related work; raw JSON is cached, Markdown shows metadata, metrics, and paper summaries |
 | `walkthrough` | `./2509.23586/overview_walkthrough.md` | 10 KB | Narrative, paper-body-oriented explanation with concrete flow |
 | `report` | `./2509.23586/report.md` | 21 KB | Fuller research analysis and structured interpretation |
 | `fulltext` | `./2509.23586/fulltext.md` | 82 KB | Exact paper details, original wording, equations, tables, sections |
