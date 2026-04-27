@@ -32,13 +32,15 @@ Use the explicit interpreter:
 
 ## Commands
 
+Supported public commands: `search`, `metadata`, `summary`, `walkthrough`, `citations`, `report`, `fulltext`, `similar`.
+
 ### Search for Papers
 
 ```bash
 /opt/miniconda3/bin/python3 ${CLAUDE_SKILL_DIR}/scripts/alphaxiv.py search "attention is all you need" --limit 10
 ```
 
-`search` returns ranked candidates with titles, arXiv IDs when available, AlphaXiv URLs, authors, and short abstracts. It is a utility command for finding the target paper and is intentionally not cached because search results can change.
+`search` calls the AlphaXiv fast paper search API and prints ranked candidates with title, arXiv ID, and AlphaXiv URL. The raw API response also contains `link` and `snippet`, but the current command output does not print snippets, authors, or abstracts. It is a utility command for finding the target paper and is intentionally not cached because search results can change.
 
 ### Get Paper Metadata
 
@@ -115,17 +117,18 @@ Use this as a fallback for precise details that are not present in `metadata`, `
 
 ## Choosing the Right Output
 
-Recent tests with paper `2509.23586` produced these approximate output sizes:
+Recent complete tests with paper `2509.23586` under `alphaxiv/tmp/all_functions_cache_check/` produced these outputs and approximate sizes:
 
 | Command | Cached output | Approx. size | Best use |
 | --- | --- | ---: | --- |
-| `metadata` | `./2509.23586/metadata.md` | varies | Paper identity, abstract, dates, AlphaXiv URL, GitHub when available, metrics, authors, topics, organizations |
+| `search` | not cached | 1.2 KB stdout | Find candidate paper IDs from keywords, titles, or ID-like queries |
+| `metadata` | `./2509.23586/metadata.md` | 2.0 KB | Paper identity, abstract, dates, AlphaXiv URL, GitHub when available, metrics, authors, topics, organizations |
 | `summary` | `./2509.23586/summary.md` | 2.7 KB | Fast conceptual overview of problem, method, insights, and results |
 | `citations` | `./2509.23586/citations.md` | 2.8 KB | Key supporting papers and why they matter |
-| `similar` | per-result `metadata.md` + `summary.md` | varies | Fresh related-work search; returned papers get reusable metadata and summary files |
 | `walkthrough` | `./2509.23586/walkthrough.md` | 10 KB | Narrative, paper-body-oriented explanation with concrete flow |
 | `report` | `./2509.23586/report.md` | 21 KB | Fuller research analysis and structured interpretation |
 | `fulltext` | `./2509.23586/fulltext.md` | 82 KB | Exact paper details, original wording, equations, tables, sections |
+| `similar` | per-result `metadata.md` + `summary.md` | 24 KB stdout for 10 results | Fresh related-work search; returned papers get reusable metadata and summary files |
 
 Prefer smaller, structured outputs first. Do not jump to `fulltext` unless the question requires exact details that the curated outputs do not contain.
 
@@ -146,14 +149,14 @@ Paper-specific commands accept plain arXiv IDs, versioned arXiv IDs, AlphaXiv UU
 - `search` and the `similar` search response are not cached.
 - Paper-specific commands cache under `./{PAPER_ID}/` in the current working directory.
 - `similar` writes reusable `metadata.md` and `summary.md` files for each returned paper under that returned paper's own ID folder.
-- `summary`, `walkthrough`, `citations`, and `report` each cache their own Markdown output; raw overview JSON responses are not persisted.
-- Cached files are reused before making network requests.
+- `summary`, `walkthrough`, `citations`, and `report` each call the AlphaXiv overview API when their Markdown cache is missing, but the raw overview JSON response is not persisted.
+- The script no longer writes `overview.json`, `overview_summary.md`, `overview_walkthrough.md`, `overview_citations.md`, or `overview_report.md`.
+- Cached files are reused before making network requests. In the `2509.23586` cache test, second runs of `metadata`, `summary`, `walkthrough`, `citations`, `report`, and `fulltext` printed `Using cached file: ...` and did not re-download content.
 
 ## Error Handling
 
 - No authentication is required for the supported commands.
 - If a public markdown endpoint returns 404, AlphaXiv has not generated that report or full text yet.
-- Network interruptions can produce retry warnings. The script retries incomplete reads and may fall back to `curl` for overview JSON.
+- Network interruptions can produce retry warnings. The script retries incomplete reads and may fall back to `curl` for overview API responses.
+- The `2509.23586` complete test observed incomplete-read warnings from the overview API during first-run `summary` and `report`, but valid Markdown files were still saved; later runs used the local cache.
 - If a command returns no useful content, try `metadata` to confirm the paper exists, then try the next broader output: `summary`, `report`, `walkthrough`, and finally `fulltext`.
-
-Supported public commands: `search`, `metadata`, `summary`, `walkthrough`, `citations`, `report`, `fulltext`, `similar`.
