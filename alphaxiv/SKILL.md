@@ -47,7 +47,7 @@ Use the explicit interpreter:
 /opt/miniconda3/bin/python3 ${CLAUDE_SKILL_DIR}/scripts/alphaxiv.py metadata https://arxiv.org/abs/1706.03762
 ```
 
-`metadata` saves or reuses `./1706.03762/metadata.md`. It prints Markdown with `Paper`, `Metrics`, and `Metadata` sections, including title, arXiv ID, AlphaXiv URL, source URL, version, first published date, latest published date, citation count, abstract, views, votes, comments, topics, authors, institutions, and BibTeX when AlphaXiv provides it.
+`metadata` saves or reuses `./1706.03762/metadata.md`. It uses the AlphaXiv metadata API and prints the same Markdown shape used for papers returned by `similar`: `Metadata`, `Metrics`, and `Abstract`. The metadata section includes title, universal paper ID, AlphaXiv URL, GitHub when available, dates, authors, topics, and organizations.
 
 Use this first when you need the paper identity, abstract, bibliographic details, or basic AlphaXiv metrics.
 
@@ -119,7 +119,7 @@ Recent tests with paper `2509.23586` produced these approximate output sizes:
 
 | Command | Cached output | Approx. size | Best use |
 | --- | --- | ---: | --- |
-| `metadata` | `./2509.23586/metadata.md` | 1.7 KB | Paper identity, abstract, dates, URLs, metrics, authors, topics |
+| `metadata` | `./2509.23586/metadata.md` | varies | Paper identity, abstract, dates, AlphaXiv URL, GitHub when available, metrics, authors, topics, organizations |
 | `summary` | `./2509.23586/overview_summary.md` | 2.7 KB | Fast conceptual overview of problem, method, insights, and results |
 | `citations` | `./2509.23586/overview_citations.md` | 2.8 KB | Key supporting papers and why they matter |
 | `similar` | per-result `metadata.md` + `overview_summary.md` | varies | Fresh related-work search; returned papers get reusable metadata and summary files |

@@ -13,6 +13,7 @@ import subprocess
 import sys
 import time
 from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
 import urllib.request
 import urllib.parse
 import urllib.error
@@ -384,6 +385,25 @@ def _organization_names(p: dict) -> list[str]:
     return names
 
 
+def _format_date_value(value) -> str:
+    if value in (None, ""):
+        return ""
+    if isinstance(value, (int, float)):
+        ts = float(value)
+        if ts > 10_000_000_000:
+            ts /= 1000
+        return datetime.fromtimestamp(ts, timezone.utc).date().isoformat()
+    text = str(value)
+    try:
+        return datetime.fromisoformat(text.replace("Z", "+00:00")).date().isoformat()
+    except ValueError:
+        pass
+    try:
+        return parsedate_to_datetime(text).date().isoformat()
+    except (TypeError, ValueError):
+        return text
+
+
 def _format_paper_summary(summary) -> str:
     if not summary:
         return "No summary found.\n"
@@ -440,12 +460,15 @@ def _format_similar_metadata(p: dict, include_title: bool = True) -> str:
         stars = p.get("github_stars")
         suffix = f" ({stars} stars)" if stars is not None else ""
         lines.append(f"- **GitHub:** {p['github_url']}{suffix}")
-    if p.get("first_publication_date"):
-        lines.append(f"- **First publication date:** {p['first_publication_date']}")
-    if p.get("publication_date"):
-        lines.append(f"- **Publication date:** {p['publication_date']}")
-    if p.get("updated_at"):
-        lines.append(f"- **Updated at:** {p['updated_at']}")
+    first_date = _format_date_value(p.get("first_publication_date"))
+    if first_date:
+        lines.append(f"- **First publication date:** {first_date}")
+    publication_date = _format_date_value(p.get("publication_date"))
+    if publication_date:
+        lines.append(f"- **Publication date:** {publication_date}")
+    updated_at = _format_date_value(p.get("updated_at"))
+    if updated_at:
+        lines.append(f"- **Updated at:** {updated_at}")
 
     authors = p.get("authors") or []
     if authors:
@@ -478,6 +501,40 @@ def _format_similar_paper_result(p: dict, index: int) -> str:
     body = body.replace("## Abstract", "### Abstract")
     lines.append(body)
     return "\n".join(lines).strip()
+
+
+def _format_metadata_response(metadata: dict, fallback_id: str) -> str:
+    paper_version = metadata.get("paper_version", {}) if isinstance(metadata, dict) else {}
+    paper_group = metadata.get("paper_group", {}) if isinstance(metadata, dict) else {}
+    implementation = metadata.get("implementation", {}) if isinstance(metadata, dict) else {}
+
+    metrics = paper_group.get("metrics") if isinstance(paper_group, dict) else None
+    authors = []
+    for author in metadata.get("authors", []) if isinstance(metadata, dict) else []:
+        if isinstance(author, dict) and author.get("full_name"):
+            authors.append(author["full_name"])
+        elif isinstance(author, str):
+            authors.append(author)
+
+    similar_shape = {
+        "title": paper_version.get("title") or paper_group.get("title") or fallback_id,
+        "universal_paper_id": (
+            paper_version.get("universal_paper_id")
+            or paper_group.get("universal_paper_id")
+            or fallback_id
+        ),
+        "github_url": implementation.get("url") if isinstance(implementation, dict) else None,
+        "github_stars": implementation.get("stars") if isinstance(implementation, dict) else None,
+        "first_publication_date": paper_group.get("first_publication_date"),
+        "publication_date": paper_version.get("publication_date"),
+        "updated_at": paper_version.get("updated_at") or paper_group.get("updated_at"),
+        "authors": authors,
+        "topics": paper_group.get("topics") or [],
+        "organization_info": metadata.get("organization_info", []) if isinstance(metadata, dict) else [],
+        "metrics": metrics,
+        "abstract": paper_version.get("abstract"),
+    }
+    return _format_similar_metadata(similar_shape)
 
 
 def cmd_search(args):
@@ -550,83 +607,11 @@ def cmd_metadata(args):
     cache_path = _cache_path("metadata", paper_id, "md")
     if _print_cache_hit(cache_path):
         return
-    paper_data = _get(f"/papers/v3/{paper_id}")
-    metrics_data = _get(f"/papers/v3/{paper_id}/metrics")
     metadata_data = _get(f"/v2/papers/{paper_id}/metadata")
-
-    paper = paper_data.get("data", paper_data) if isinstance(paper_data, dict) else {}
-    metrics = metrics_data.get("data", metrics_data) if isinstance(metrics_data, dict) else {}
+    if not metadata_data:
+        return
     metadata = metadata_data.get("data", metadata_data) if isinstance(metadata_data, dict) else {}
-    paper_version = metadata.get("paper_version", {}) if isinstance(metadata, dict) else {}
-    paper_group = metadata.get("paper_group", {}) if isinstance(metadata, dict) else {}
-
-    def format_timestamp(value) -> str:
-        if value in (None, ""):
-            return ""
-        try:
-            ts = float(value)
-        except (TypeError, ValueError):
-            return str(value)
-        if ts > 10_000_000_000:
-            ts /= 1000
-        return datetime.fromtimestamp(ts, timezone.utc).date().isoformat()
-
-    def append_field(lines: list[str], label: str, value) -> None:
-        if value not in (None, "", []):
-            lines.append(f"- **{label}:** {value}")
-
-    arxiv_id = (
-        paper.get("arxivId")
-        or paper.get("upid")
-        or paper.get("universalId")
-        or paper_version.get("universal_paper_id")
-        or paper_id
-    )
-    title = paper.get("title") or paper.get("name") or paper_version.get("title") or arxiv_id
-
-    lines = [f"# {title}", ""]
-
-    lines.extend(["## Paper", ""])
-    append_field(lines, "arXiv ID", arxiv_id)
-    append_field(lines, "AlphaXiv URL", f"https://alphaxiv.org/abs/{arxiv_id}" if arxiv_id else "")
-    append_field(lines, "Source URL", paper.get("sourceUrl"))
-    append_field(lines, "Version", paper.get("versionLabel") or paper_version.get("version_label"))
-    append_field(lines, "First Published", format_timestamp(paper.get("firstPublicationDate") or paper.get("submittedDate")))
-    append_field(lines, "Published", format_timestamp(paper.get("publicationDate") or paper.get("publishedDate") or paper_version.get("publication_date")))
-    append_field(lines, "Citations", paper.get("citationsCount"))
-
-    abstract = paper.get("abstract") or paper_version.get("abstract")
-    if abstract:
-        lines.extend(["", "### Abstract", "", abstract])
-
-    lines.extend(["", "## Metrics", ""])
-    append_field(lines, "Views", metrics.get("visitsAll", "N/A") if metrics else "N/A")
-    append_field(lines, "Votes", metrics.get("publicTotalVotes", "N/A") if metrics else "N/A")
-    append_field(lines, "Comments", metrics.get("commentsCount", "N/A") if metrics else "N/A")
-
-    lines.extend(["", "## Metadata", ""])
-    topics = paper_group.get("topics", []) if isinstance(paper_group, dict) else []
-    if topics:
-        append_field(lines, "Topics", ", ".join(topics))
-    authors = metadata.get("authors", []) if isinstance(metadata, dict) else []
-    if authors:
-        names = [author.get("full_name", "") for author in authors if isinstance(author, dict)]
-        append_field(lines, "Authors", ", ".join(name for name in names if name))
-    orgs = metadata.get("organization_info", []) if isinstance(metadata, dict) else []
-    if orgs:
-        names = [org.get("name", "") for org in orgs if isinstance(org, dict)]
-        append_field(lines, "Institutions", ", ".join(name for name in names if name))
-    implementation = metadata.get("implementation", {}) if isinstance(metadata, dict) else {}
-    if implementation and implementation.get("url"):
-        stars = implementation.get("stars", 0)
-        append_field(lines, "GitHub", f"{implementation.get('url')} ({stars} stars)")
-
-    citation = paper_version.get("citation", {}) if isinstance(paper_version, dict) else {}
-    bibtex = citation.get("bibtex") or paper.get("citationBibtex")
-    if bibtex:
-        lines.extend(["", "### BibTeX", "", "```bibtex", bibtex, "```"])
-
-    _save_text(cache_path, "\n".join(lines))
+    _save_text(cache_path, _format_metadata_response(metadata, paper_id))
 
 
 def cmd_metrics(args):
