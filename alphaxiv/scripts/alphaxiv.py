@@ -147,6 +147,40 @@ def _extract_paper_id(value: str) -> str | None:
     return None
 
 
+def _normalize_paper_id(value: str) -> str | None:
+    text = urllib.parse.unquote(value.strip())
+    if not text:
+        return None
+
+    arxiv_id = _extract_paper_id(text)
+    if arxiv_id:
+        return arxiv_id
+
+    parsed = urllib.parse.urlparse(text)
+    if parsed.scheme or parsed.netloc:
+        parts = [part for part in parsed.path.split("/") if part]
+        if parts:
+            candidate = parts[-1]
+            if candidate.endswith(".md"):
+                candidate = candidate[:-3]
+            if candidate.endswith(".pdf"):
+                candidate = candidate[:-4]
+            return candidate or None
+        return None
+
+    if re.fullmatch(r"[A-Za-z0-9_.-]+", text):
+        return text
+    return None
+
+
+def _require_paper_id(value: str) -> str | None:
+    paper_id = _normalize_paper_id(value)
+    if not paper_id:
+        print(f"Error: could not extract a paper ID from {value!r}", file=sys.stderr)
+        return None
+    return paper_id
+
+
 def _safe_cache_id(value: str) -> str:
     return re.sub(r"[^A-Za-z0-9_.-]+", "_", value).strip("_") or "paper"
 
@@ -373,12 +407,15 @@ def cmd_paper(args):
 
 
 def cmd_metadata(args):
-    cache_path = _cache_path("metadata", args.id, "md")
+    paper_id = _require_paper_id(args.id)
+    if not paper_id:
+        return
+    cache_path = _cache_path("metadata", paper_id, "md")
     if _print_cache_hit(cache_path):
         return
-    paper_data = _get(f"/papers/v3/{args.id}")
-    metrics_data = _get(f"/papers/v3/{args.id}/metrics")
-    metadata_data = _get(f"/v2/papers/{args.id}/metadata")
+    paper_data = _get(f"/papers/v3/{paper_id}")
+    metrics_data = _get(f"/papers/v3/{paper_id}/metrics")
+    metadata_data = _get(f"/v2/papers/{paper_id}/metadata")
 
     paper = paper_data.get("data", paper_data) if isinstance(paper_data, dict) else {}
     metrics = metrics_data.get("data", metrics_data) if isinstance(metrics_data, dict) else {}
@@ -406,7 +443,7 @@ def cmd_metadata(args):
         or paper.get("upid")
         or paper.get("universalId")
         or paper_version.get("universal_paper_id")
-        or args.id
+        or paper_id
     )
     title = paper.get("title") or paper.get("name") or paper_version.get("title") or arxiv_id
 
@@ -487,36 +524,44 @@ def _get_required_overview_data(paper_id: str):
 
 
 def cmd_overview_summary(args):
-    cache_path = _cache_path("overview_summary", args.id, "md")
+    paper_id = _require_paper_id(args.id)
+    if not paper_id:
+        return
+    cache_path = _cache_path("overview_summary", paper_id, "md")
     if _print_cache_hit(cache_path):
         return
-    data = _get_required_overview_data(args.id)
+    data = _get_required_overview_data(paper_id)
     if data:
         _save_text(cache_path, _format_overview_summary(data))
 
 
 def cmd_overview_walkthrough(args):
-    cache_path = _cache_path("overview_walkthrough", args.id, "md")
+    paper_id = _require_paper_id(args.id)
+    if not paper_id:
+        return
+    cache_path = _cache_path("overview_walkthrough", paper_id, "md")
     if _print_cache_hit(cache_path):
         return
-    data = _get_required_overview_data(args.id)
+    data = _get_required_overview_data(paper_id)
     if data:
         _save_text(cache_path, _format_overview_section(data, "overview"))
 
 
 def cmd_overview_citations(args):
-    cache_path = _cache_path("overview_citations", args.id, "md")
+    paper_id = _require_paper_id(args.id)
+    if not paper_id:
+        return
+    cache_path = _cache_path("overview_citations", paper_id, "md")
     if _print_cache_hit(cache_path):
         return
-    data = _get_required_overview_data(args.id)
+    data = _get_required_overview_data(paper_id)
     if data:
         _save_text(cache_path, _format_overview_citations(data))
 
 
 def cmd_report(args):
-    paper_id = _extract_paper_id(args.input)
+    paper_id = _require_paper_id(args.input)
     if not paper_id:
-        print(f"Error: could not extract an arXiv paper ID from {args.input!r}", file=sys.stderr)
         return
     cache_path = _cache_path("report", paper_id, "md")
     if _print_cache_hit(cache_path):
@@ -534,9 +579,8 @@ def cmd_report(args):
 
 
 def cmd_fulltext(args):
-    paper_id = _extract_paper_id(args.input)
+    paper_id = _require_paper_id(args.input)
     if not paper_id:
-        print(f"Error: could not extract an arXiv paper ID from {args.input!r}", file=sys.stderr)
         return
     cache_path = _cache_path("fulltext", paper_id, "md")
     if _print_cache_hit(cache_path):
@@ -548,10 +592,13 @@ def cmd_fulltext(args):
 
 
 def cmd_similar(args):
-    cache_path = _cache_path(f"similar_limit_{args.limit}", args.id, "txt")
+    paper_id = _require_paper_id(args.id)
+    if not paper_id:
+        return
+    cache_path = _cache_path(f"similar_limit_{args.limit}", paper_id, "txt")
     if _print_cache_hit(cache_path):
         return
-    data = _get(f"/papers/v3/{args.id}/similar-papers", {"limit": str(args.limit)})
+    data = _get(f"/papers/v3/{paper_id}/similar-papers", {"limit": str(args.limit)})
     if not data:
         return
     papers = data if isinstance(data, list) else data.get("data", [])
@@ -649,23 +696,23 @@ def main():
     # Metadata sections. It combines the old paper, metrics, and metadata
     # commands into one structured record.
     p_meta = sub.add_parser("metadata", help="Get structured paper metadata")
-    p_meta.add_argument("id", help="arXiv ID or UUID")
+    p_meta.add_argument("id", help="arXiv ID, UUID, arXiv URL, or AlphaXiv URL")
 
     # Output cache: ./<paper_id>/overview.json plus
     # ./<paper_id>/overview_summary.md. Formats the API summary JSON as
     # Markdown instead of exposing the raw JSON.
     p_summary = sub.add_parser("summary", help="Get AI overview summary")
-    p_summary.add_argument("id", help="arXiv ID or UUID")
+    p_summary.add_argument("id", help="arXiv ID, UUID, arXiv URL, or AlphaXiv URL")
 
     # Output cache: ./<paper_id>/overview_walkthrough.md with the API overview
     # section. This is the shorter narrative walkthrough, not the full report.
     p_walkthrough = sub.add_parser("walkthrough", help="Get AI overview walkthrough")
-    p_walkthrough.add_argument("id", help="arXiv ID or UUID")
+    p_walkthrough.add_argument("id", help="arXiv ID, UUID, arXiv URL, or AlphaXiv URL")
 
     # Output cache: ./<paper_id>/overview_citations.md with relevant citations
     # from the overview API.
     p_citations = sub.add_parser("citations", help="Get overview citations")
-    p_citations.add_argument("id", help="arXiv ID or UUID")
+    p_citations.add_argument("id", help="arXiv ID, UUID, arXiv URL, or AlphaXiv URL")
 
     # Output cache: ./<paper_id>/report.md from the overview JSON report.
     # If that report is unavailable, falls back to the public markdown endpoint.
@@ -680,7 +727,7 @@ def main():
 
     # Output cache: ./<paper_id>/similar_limit_<n>.txt with formatted paper list.
     p_similar = sub.add_parser("similar", help="Get similar papers")
-    p_similar.add_argument("id", help="arXiv ID or UUID")
+    p_similar.add_argument("id", help="arXiv ID, UUID, arXiv URL, or AlphaXiv URL")
     p_similar.add_argument("--limit", type=int, default=5)
 
     if False:
