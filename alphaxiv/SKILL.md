@@ -11,7 +11,7 @@ AlphaXiv is a platform built on top of arXiv that provides searchable paper meta
 Use the explicit interpreter:
 
 ```bash
-/opt/miniconda3/bin/python3 ${CLAUDE_SKILL_DIR}/scripts/alphaxiv.py <command> [options]
+/opt/miniconda3/envs/skill/bin/python3 ${CLAUDE_SKILL_DIR}/scripts/alphaxiv.py <command> [options]
 ```
 
 ## When to Use
@@ -37,7 +37,7 @@ Supported public commands: `search`, `metadata`, `summary`, `walkthrough`, `cita
 ### Search for Papers
 
 ```bash
-/opt/miniconda3/bin/python3 ${CLAUDE_SKILL_DIR}/scripts/alphaxiv.py search "attention is all you need" --limit 10
+/opt/miniconda3/envs/skill/bin/python3 ${CLAUDE_SKILL_DIR}/scripts/alphaxiv.py search "attention is all you need" --limit 10
 ```
 
 `search` calls the AlphaXiv fast paper search API and prints ranked candidates with title, arXiv ID, and AlphaXiv URL. The raw API response also contains `link` and `snippet`, but the current command output does not print snippets, authors, or abstracts. It is a utility command for finding the target paper and is intentionally not cached because search results can change.
@@ -45,8 +45,8 @@ Supported public commands: `search`, `metadata`, `summary`, `walkthrough`, `cita
 ### Get Paper Metadata
 
 ```bash
-/opt/miniconda3/bin/python3 ${CLAUDE_SKILL_DIR}/scripts/alphaxiv.py metadata 1706.03762
-/opt/miniconda3/bin/python3 ${CLAUDE_SKILL_DIR}/scripts/alphaxiv.py metadata https://arxiv.org/abs/1706.03762
+/opt/miniconda3/envs/skill/bin/python3 ${CLAUDE_SKILL_DIR}/scripts/alphaxiv.py metadata 1706.03762
+/opt/miniconda3/envs/skill/bin/python3 ${CLAUDE_SKILL_DIR}/scripts/alphaxiv.py metadata https://arxiv.org/abs/1706.03762
 ```
 
 `metadata` saves or reuses `./1706.03762/metadata.md`. It uses the AlphaXiv metadata API and prints the same Markdown shape used for papers returned by `similar`: `Metadata`, `Metrics`, and `Abstract`. The metadata section includes title, universal paper ID, AlphaXiv URL, GitHub when available, dates, authors, topics, and organizations.
@@ -56,7 +56,7 @@ Use this first when you need the paper identity, abstract, bibliographic details
 ### Get a Short AI Summary
 
 ```bash
-/opt/miniconda3/bin/python3 ${CLAUDE_SKILL_DIR}/scripts/alphaxiv.py summary 1706.03762
+/opt/miniconda3/envs/skill/bin/python3 ${CLAUDE_SKILL_DIR}/scripts/alphaxiv.py summary 1706.03762
 ```
 
 `summary` saves or reuses `./1706.03762/summary.md`. It requests the AlphaXiv overview API when this Markdown cache is missing and does not persist the raw JSON response. It formats the AlphaXiv overview summary into Markdown sections such as `Problem`, `Method`, `Key Insights`, and `Results`.
@@ -66,8 +66,8 @@ Use this with `metadata` for the fastest useful overview of a paper.
 ### Get the Structured Report
 
 ```bash
-/opt/miniconda3/bin/python3 ${CLAUDE_SKILL_DIR}/scripts/alphaxiv.py report 1706.03762
-/opt/miniconda3/bin/python3 ${CLAUDE_SKILL_DIR}/scripts/alphaxiv.py report https://alphaxiv.org/abs/1706.03762
+/opt/miniconda3/envs/skill/bin/python3 ${CLAUDE_SKILL_DIR}/scripts/alphaxiv.py report 1706.03762
+/opt/miniconda3/envs/skill/bin/python3 ${CLAUDE_SKILL_DIR}/scripts/alphaxiv.py report https://alphaxiv.org/abs/1706.03762
 ```
 
 `report` saves or reuses `./1706.03762/report.md`. It prefers the `report` section from the AlphaXiv overview API and falls back to the public markdown endpoint `https://alphaxiv.org/overview/{PAPER_ID}.md` only when needed. It does not persist the raw overview JSON response.
@@ -77,7 +77,7 @@ Use this for deeper analysis: broader research context, motivation, methodology,
 ### Get the Paper Walkthrough
 
 ```bash
-/opt/miniconda3/bin/python3 ${CLAUDE_SKILL_DIR}/scripts/alphaxiv.py walkthrough 1706.03762
+/opt/miniconda3/envs/skill/bin/python3 ${CLAUDE_SKILL_DIR}/scripts/alphaxiv.py walkthrough 1706.03762
 ```
 
 `walkthrough` saves or reuses `./1706.03762/walkthrough.md`. It requests the AlphaXiv overview API when this Markdown cache is missing and does not persist the raw JSON response. It is shorter than `report` and follows the paper content more narratively, often including figures and section-level explanations.
@@ -87,7 +87,7 @@ Use this when the user wants to understand how the paper unfolds or asks about t
 ### Get Supporting Citations
 
 ```bash
-/opt/miniconda3/bin/python3 ${CLAUDE_SKILL_DIR}/scripts/alphaxiv.py citations 1706.03762
+/opt/miniconda3/envs/skill/bin/python3 ${CLAUDE_SKILL_DIR}/scripts/alphaxiv.py citations 1706.03762
 ```
 
 `citations` saves or reuses `./1706.03762/citations.md`. It requests the AlphaXiv overview API when this Markdown cache is missing and does not persist the raw JSON response. It lists key related papers cited by or relevant to the target paper, with short relevance explanations and AlphaXiv links when available.
@@ -97,7 +97,7 @@ Use this to trace the foundations of a paper or identify important prior work.
 ### Get Similar Papers
 
 ```bash
-/opt/miniconda3/bin/python3 ${CLAUDE_SKILL_DIR}/scripts/alphaxiv.py similar 1706.03762 --limit 10
+/opt/miniconda3/envs/skill/bin/python3 ${CLAUDE_SKILL_DIR}/scripts/alphaxiv.py similar 1706.03762 --limit 10
 ```
 
 `similar` searches the AlphaXiv API every time and prints Markdown results. It does not cache the similar-search response. For each returned paper, it stores reusable paper files under that returned paper's own `./{PAPER_ID}/` folder: `metadata.md` contains metadata, metrics, and abstract; `summary.md` contains the returned `paper_summary`.
@@ -107,8 +107,8 @@ Use this to expand the related-work set beyond the paper's cited foundation.
 ### Get Extracted Full Text
 
 ```bash
-/opt/miniconda3/bin/python3 ${CLAUDE_SKILL_DIR}/scripts/alphaxiv.py fulltext 1706.03762
-/opt/miniconda3/bin/python3 ${CLAUDE_SKILL_DIR}/scripts/alphaxiv.py fulltext https://arxiv.org/pdf/1706.03762
+/opt/miniconda3/envs/skill/bin/python3 ${CLAUDE_SKILL_DIR}/scripts/alphaxiv.py fulltext 1706.03762
+/opt/miniconda3/envs/skill/bin/python3 ${CLAUDE_SKILL_DIR}/scripts/alphaxiv.py fulltext https://arxiv.org/pdf/1706.03762
 ```
 
 `fulltext` saves or reuses `./1706.03762/fulltext.md` from `https://alphaxiv.org/abs/{PAPER_ID}.md`.

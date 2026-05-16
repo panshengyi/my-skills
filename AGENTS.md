@@ -6,17 +6,17 @@ This repository stores local Codex/Claude-style skills.
 
 ## Build, Test, and Development Commands
 
-No build step is required. Run the script directly with the explicit interpreter documented in `SKILL.md`:
+No build step is required. By default, run all skill Python commands with the explicit Python binary from the `skill` environment:
 
 ```bash
-/opt/miniconda3/bin/python3 alphaxiv/scripts/alphaxiv.py search "attention is all you need" --limit 5
-/opt/miniconda3/bin/python3 alphaxiv/scripts/alphaxiv.py summary 1706.03762
+/opt/miniconda3/envs/skill/bin/python3 alphaxiv/scripts/alphaxiv.py search "attention is all you need" --limit 5
+/opt/miniconda3/envs/skill/bin/python3 alphaxiv/scripts/alphaxiv.py summary 1706.03762
 ```
 
 Check syntax before committing script changes:
 
 ```bash
-/opt/miniconda3/bin/python3 -m py_compile alphaxiv/scripts/alphaxiv.py
+/opt/miniconda3/envs/skill/bin/python3 -m py_compile alphaxiv/scripts/alphaxiv.py
 ```
 
 ## Coding Style & Naming Conventions
@@ -28,6 +28,8 @@ Use concise, standard Python with 4-space indentation. Keep command handlers nam
 The repository currently has only an initial commit, so no detailed commit convention exists. Use clear imperative commit messages, for example `Add AlphaXiv markdown lookup command`. Pull requests should describe the skill behavior changed, list manual verification commands, and note whether network access or `ALPHAXIV_TOKEN` is required. Do not include `.DS_Store`, cache files, or temporary outputs from `alphaxiv/tmp/`.
 
 When a Codex task finishes a discrete change, create a checkpoint commit with `git commit -m "checkpoint: after codex task1_name"`. Before starting a new change, if there are new modifications since the previous checkpoint commit, create `git commit -m "checkpoint: before codex task2_name"` so review and rollback points stay clear.
+
+Before pushing this repository to GitHub, remind the user to update `environment.yml` so the remote install path can reproduce the `skill` conda environment.
 
 ## Security & Configuration Tips
 
